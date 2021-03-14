@@ -1,6 +1,8 @@
-/* eslint-disable no-undef */
-/* jshint globalstrict: true */ /* global Scope: false */
+
 "use strict";
+
+var _ = require('lodash');
+var Scope = require('../src/scope');
 
 describe("Scope", function () {
   it("can be constructed and used as an object", function () {
@@ -394,7 +396,7 @@ describe("Scope", function () {
       scope.$digest();
       expect(scope.counter).toBe(1);
       scope.$applyAsync(function (scope) {
-        scope.aValue = abc;
+        scope.aValue = "abc";
       });
       expect(scope.counter).toBe(1);
       setTimeout(function () {
@@ -431,15 +433,15 @@ describe("Scope", function () {
       scope.$watch(
         function (scope) {
           scope.counter++;
-          returnscope.aValue;
+          return  scope.aValue;
         },
         function (newValue, oldValue, scope) {}
       );
       scope.$applyAsync(function (scope) {
-        scope.aValue = abc;
+        scope.aValue = "abc";
       });
       scope.$applyAsync(function (scope) {
-        scope.aValue = def;
+        scope.aValue = "def";
       });
       setTimeout(function () {
         expect(scope.counter).toBe(2);
@@ -480,7 +482,7 @@ describe("Scope", function () {
     });
 
     it("catches exceptions in watch functions and continues", function () {
-      scope.aValue = abc;
+      scope.aValue = "abc";
       scope.counter = 0;
       scope.$watch(
         function (scope) {
@@ -560,7 +562,7 @@ describe("Scope", function () {
     });
 
     it("catches exceptions in $$postDigest", function () {
-      vardidRun = false;
+      var didRun = false;
       scope.$$postDigest(function () {
         throw "Error";
       });
@@ -572,7 +574,7 @@ describe("Scope", function () {
     });
 
     it("allows destroying a $watch with a removal function", function () {
-      scope.aValue = abc;
+      scope.aValue = "abc";
       scope.counter = 0;
       var destroyWatch = scope.$watch(
         function (scope) {
@@ -646,7 +648,7 @@ describe("Scope", function () {
     });
 
     it("allows destroying several $watches during digest", function () {
-      scope.aValue = abc;
+      scope.aValue = "abc";
       scope.counter = 0;
       var destroyWatch1 = scope.$watch(function (scope) {
         destroyWatch1();
@@ -654,7 +656,7 @@ describe("Scope", function () {
       });
       var destroyWatch2 = scope.$watch(
         function (scope) {
-          returnscope.aValue;
+          return scope.aValue;
         },
         function (newValue, oldValue, scope) {
           scope.counter++;
@@ -665,10 +667,10 @@ describe("Scope", function () {
     });
   });
 
-  describe($watchGroup, function () {
+  describe("$watchGroup", function () {
     var scope;
     beforeEach(function () {
-      scope = newScope();
+      scope = new Scope();
     });
     it("takes watches as an array and calls listener with arrays", function () {
       var gotNewValues, gotOldValues;
@@ -737,16 +739,16 @@ describe("Scope", function () {
     });
 
     it("uses different arrays for old and new values on subsequent runs", function () {
-      vargotNewValues, gotOldValues;
+      var gotNewValues, gotOldValues;
       scope.aValue = 1;
       scope.anotherValue = 2;
       scope.$watchGroup(
         [
           function (scope) {
-            returnscope.aValue;
+            return scope.aValue;
           },
           function (scope) {
-            returnscope.anotherValue;
+            return scope.anotherValue;
           },
         ],
         function (newValues, oldValues, scope) {
@@ -776,13 +778,13 @@ describe("Scope", function () {
       var counter = 0;
       scope.aValue = 1;
       scope.anotherValue = 2;
-      vardestroyGroup = scope.$watchGroup(
+      var destroyGroup = scope.$watchGroup(
         [
           function (scope) {
-            returnscope.aValue;
+            return scope.aValue;
           },
           function (scope) {
-            returnscope.anotherValue;
+            return  scope.anotherValue;
           },
         ],
         function (newValues, oldValues, scope) {
@@ -790,6 +792,7 @@ describe("Scope", function () {
         }
       );
       scope.$digest();
+      expect(counter).toEqual(1);
       scope.anotherValue = 3;
       destroyGroup();
       scope.$digest();
@@ -797,8 +800,8 @@ describe("Scope", function () {
     });
 
     it("does not call the zero-watch listener when deregistered first", function () {
-      varcounter = 0;
-      vardestroyGroup = scope.$watchGroup(
+      var counter = 0;
+      var destroyGroup = scope.$watchGroup(
         [],
         function (newValues, oldValues, scope) {
           counter++;

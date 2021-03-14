@@ -1,5 +1,4 @@
-/* jshint globalstrict: true */
-'use strict';
+var _ = require('lodash');
 function Scope () {
   this.$$watchers = [];
   this.$$lastDirtyWatch = null;
@@ -61,7 +60,7 @@ Scope.prototype.$digest = function () {
   var ttl = 10;
   var dirty;
   this.$$lastDirtyWatch = null;
-  this.$beginPhase('$digest');
+  this.$beginPhase("$digest");
 
   if (this.$$applyAsyncId) {
     clearTimeout(this.$$applyAsyncId);
@@ -78,9 +77,9 @@ Scope.prototype.$digest = function () {
       }
     }
     dirty = this.$digestOnce();
-    if ((dirty || this.$$asyncQueue.length) && !ttl--) {
+    if ((dirty || this.$$asyncQueue.length) && !(ttl--)) {
       this.$clearPhase();
-      throw '10 digest iterations reached';
+      throw "10 digest iterations reached";
     }
   } while (dirty || this.$$asyncQueue.length);
   this.$clearPhase();
@@ -100,8 +99,8 @@ Scope.prototype.$$areEqual = function (newValue, oldValue, valueEq) {
   } else {
     return (
       newValue === oldValue ||
-      (typeof newValue === 'number' &&
-        typeof oldValue === 'number' &&
+      (typeof newValue === "number" &&
+        typeof oldValue === "number" &&
         isNaN(newValue) &&
         isNaN(oldValue))
     );
@@ -113,7 +112,7 @@ Scope.prototype.$eval = function (espr, arg) {
 };
 
 Scope.prototype.$apply = function (expr) {
-  this.$beginPhase('$apply');
+  this.$beginPhase("$apply");
   try {
     return this.$eval(expr);
   } finally {
@@ -159,7 +158,7 @@ Scope.prototype.$$flushApplyAsync = function () {
 
 Scope.prototype.$beginPhase = function (phase) {
   if (this.$$phase) {
-    throw this.$$phase + 'already in progress';
+    throw this.$$phase + "already in progress";
   }
   this.$$phase = phase;
 };
@@ -186,7 +185,7 @@ Scope.prototype.$watchGroup = function (watchFns, listenerFn) {
         listenerFn(newValues, oldValues, self);
       }
     });
-    return function() {
+    return function () {
       shouldCall = false;
     };
   }
@@ -215,5 +214,7 @@ Scope.prototype.$watchGroup = function (watchFns, listenerFn) {
   });
   };
 };
+
+module.exports = Scope;
 
 
