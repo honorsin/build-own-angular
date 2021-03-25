@@ -36,7 +36,7 @@ describe("Scope", function () {
       scope.$watch(watchFn, listenerFn);
       scope.$digest();
 
-      expect(listenerFn).toHaveBeenCalled(scope);
+      expect(watchFn).toHaveBeenCalled();
     });
 
     it("calls the listener function when the watched value changes", function () {
@@ -45,7 +45,7 @@ describe("Scope", function () {
 
       scope.$watch(
         function (scope) {
-          return scope.someValues;
+          return scope.someValue;
         },
         function (newValue, oldValue, scope) {
           scope.counter++;
