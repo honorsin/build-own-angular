@@ -1,8 +1,8 @@
-'use strict';
+"use strict";
 
-var _ = require('lodash');
+var _ = require("lodash");
 
-function initWatchVal() { }
+function initWatchVal() {}
 
 function Scope() {
   this.$$watchers = [];
@@ -16,7 +16,7 @@ function Scope() {
 
 Scope.prototype.$beginPhase = function (phase) {
   if (this.$$phase) {
-    throw this.$$phase + ' already in progress.';
+    throw this.$$phase + " already in progress.";
   }
   this.$$phase = phase;
 };
@@ -29,9 +29,9 @@ Scope.prototype.$watch = function (watchFn, listenerFn, valueEq) {
   var self = this;
   var watcher = {
     watchFn: watchFn,
-    listenerFn: listenerFn || function () { },
+    listenerFn: listenerFn || function () {},
     last: initWatchVal,
-    valueEq: !!valueEq
+    valueEq: !!valueEq,
   };
   this.$$watchers.unshift(watcher);
   this.$$lastDirtyWatch = null;
@@ -48,7 +48,7 @@ Scope.prototype.$digest = function () {
   var ttl = 10;
   var dirty;
   this.$$lastDirtyWatch = null;
-  this.$beginPhase('$digest');
+  this.$beginPhase("$digest");
 
   if (this.$$applyAsyncId) {
     clearTimeout(this.$$applyAsyncId);
@@ -65,8 +65,8 @@ Scope.prototype.$digest = function () {
       }
     }
     dirty = this.$$digestOnce();
-    if ((dirty || this.$$asyncQueue.length) && !(ttl--)) {
-      throw '10 digest iterations reached';
+    if ((dirty || this.$$asyncQueue.length) && !ttl--) {
+      throw "10 digest iterations reached";
     }
   } while (dirty || this.$$asyncQueue.length);
   this.$clearPhase();
@@ -86,8 +86,12 @@ Scope.prototype.$$digestOnce = function () {
         oldValue = watcher.last;
         if (!self.$$areEqual(newValue, oldValue, watcher.valueEq)) {
           self.$$lastDirtyWatch = watcher;
-          watcher.last = (watcher.valueEq ? _.cloneDeep(newValue) : newValue);
-          watcher.listenerFn(newValue, (oldValue === initWatchVal ? newValue : oldValue), self);
+          watcher.last = watcher.valueEq ? _.cloneDeep(newValue) : newValue;
+          watcher.listenerFn(
+            newValue,
+            oldValue === initWatchVal ? newValue : oldValue,
+            self
+          );
           dirty = true;
         } else if (self.$$lastDirtyWatch === watcher) {
           return false;
@@ -104,9 +108,13 @@ Scope.prototype.$$areEqual = function (newValue, oldValue, valueEq) {
   if (valueEq) {
     return _.isEqual(newValue, oldValue);
   } else {
-    return newValue === oldValue ||
-      (typeof newValue === 'number' && typeof oldValue === 'number' &&
-        isNaN(newValue) && isNaN(oldValue));
+    return (
+      newValue === oldValue ||
+      (typeof newValue === "number" &&
+        typeof oldValue === "number" &&
+        isNaN(newValue) &&
+        isNaN(oldValue))
+    );
   }
 };
 
@@ -116,7 +124,7 @@ Scope.prototype.$eval = function (expr, locals) {
 
 Scope.prototype.$apply = function (expr) {
   try {
-    this.$beginPhase('$apply');
+    this.$beginPhase("$apply");
     return this.$eval(expr);
   } finally {
     this.$clearPhase();
@@ -204,6 +212,12 @@ Scope.prototype.$watchGroup = function (watchFns, listenerFn) {
   };
 };
 
+Scope.prototype.$new = function () {
+  var ChildScope = function () {};
+  ChildScope.prototype = this;
+  var child = new ChildScope();
+  child.$$watchers = [];
+  return child;
+};
+
 module.exports = Scope;
-
-
