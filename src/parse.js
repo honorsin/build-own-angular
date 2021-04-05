@@ -8,6 +8,25 @@ var ESCAPES = {
   "'": "'",
   '"': '"',
 };
+var OPERATORS = {
+  "+": true,
+  "!": true,
+  "-": true,
+  "*": true,
+  "/": true,
+  "%": true,
+  "=": true,
+  "==": true,
+  "!=": true,
+  "===": true,
+  "!==": true,
+  "<": true,
+  ">": true,
+  "<=": true,
+  ">=": true,
+  "&&": true,
+  "||": true,
+};
 function Lexer() {}
 
 Lexer.prototype.lex = function (text) {
@@ -25,7 +44,7 @@ Lexer.prototype.lex = function (text) {
       this.readNumber();
     } else if (this.is("'\"")) {
       this.readString(this.ch);
-    } else if (this.is("[],{}:.()=")) {
+    } else if (this.is("[],{}:.()?;")) {
       this.tokens.push({ text: this.ch });
       this.index++;
     } else if (this.isIdent(this.ch)) {
@@ -33,7 +52,19 @@ Lexer.prototype.lex = function (text) {
     } else if (this.isWhitespace(this.ch)) {
       this.index++;
     } else {
-      "throwUnexpected next character:" + this.ch;
+      var ch = this.ch;
+      var ch2 = this.ch + this.peek();
+      var ch3 = this.ch + this.peek() + this.peek(2);
+      var op = OPERATORS[ch];
+      var op2 = OPERATORS[ch2];
+      var op3 = OPERATORS[ch3];
+      if (op || op2 || op3) {
+        var token = op3 ? ch3 : op2 ? ch2 : ch;
+        this.tokens.push({ text: token });
+        this.index += token.length;
+      } else {
+        throw "Unexpected next character:" + this.ch;
+      }
     }
   }
 
@@ -81,9 +112,11 @@ Lexer.prototype.readNumber = function () {
 Lexer.prototype.readString = function () {
   this.index++;
   var string = "";
+  var rawString = quote;
   var escape = false;
   while (this.index < this.text.length) {
     var ch = this.text.charAt(this.index);
+    rawString += ch;
     if (escape) {
       if (ch === u) {
         var hex = this.text.substring(this.index + 1, this.index + 5);
@@ -103,7 +136,7 @@ Lexer.prototype.readString = function () {
       escape = false;
     } else if (ch === quote) {
       this.index++;
-      this.tokens.push({ text: string, value: string });
+      this.tokens.push({ text: rawString, value: string });
       return;
     } else if (ch === "\\") {
       escape = true;
@@ -136,9 +169,10 @@ Lexer.prototype.readIdent = function () {
   var token = { text: text, identifier: true };
   this.tokens.push(token);
 };
-Lexer.prototype.peek = function () {
-  return this.index < this.text.length - 1
-    ? this.text.charAt(this.index + 1)
+Lexer.prototype.peek = function (n) {
+  n = n || 1;
+  return this.index + n < this.text.length
+    ? this.text.charAt(this.index + n)
     : false;
 };
 Lexer.prototype.isExpOperator = function (ch) {
@@ -176,16 +210,31 @@ AST.MemberExpression = "MemberExpression";
 AST.ThisExpression = "ThisExpression";
 AST.CallExpression = "CallExpression";
 AST.AssignmentExpression = "AssignmentExpression";
+AST.UnaryExpression = "UnaryExpression";
+AST.BinaryExpression = "BinaryExpression";
+AST.LogicalExpression = "LogicalExpression";
+AST.ConditionalExpression = "ConditionalExpression";
 AST.prototype.ast = function (text) {
   this.tokens = this.lexer.lex(text);
   return this.program();
 };
 AST.prototype.program = function () {
-  return { type: AST.Program, body: this.assignment() };
+  var body = [];
+  while(true){
+    if(this.tokens.length){
+      body.push(this.assignment())
+    }
+    if(!this.expect(';')) {
+      return { type: AST.Program, body: body };
+    }
+  }
 };
 AST.prototype.primary = function () {
   var primary;
-  if (this.expect("[")) {
+  if (this.expect("(")) {
+    primary = this.assignment();
+    this.consume(")");
+  } else if (this.expect("[")) {
     primary = this.arrayDeclaration();
   } else if (this.constants.hasOwnProperty(this.tokens[0].text)) {
     primary = this.constants[this.consume().value];
@@ -299,14 +348,119 @@ AST.prototype.peek = function (e) {
   }
 };
 AST.prototype.assignment = function () {
-  var left = this.primary();
+  var left = this.ternary();
   if (this.expect("=")) {
-    var right = this.primary();
+    var right = this.ternary();
     return { type: AST.AssignmentExpression, left: left, right: right };
   }
   return left;
 };
-
+AST.prototype.unary = function () {
+  var token;
+  if ((token = this.expect("+", "!", "-"))) {
+    return {
+      type: AST.UnaryExpression,
+      operator: token.text,
+      argument: this.unary(),
+    };
+  } else {
+    return this.primary();
+  }
+};
+AST.prototype.multiplicative = function () {
+  var left = this.unary();
+  var token;
+  while ((token = this.expect("*", "/", "%"))) {
+    left = {
+      type: AST.BinaryExpression,
+      left: left,
+      operator: token.text,
+      right: this.unary(),
+    };
+  }
+  return left;
+};
+AST.prototype.additive = function () {
+  var left = this.multiplicative();
+  var token;
+  while ((token = this.expect("+")) || (token = this.expect("-"))) {
+    left = {
+      type: AST.BinaryExpression,
+      left: left,
+      operator: token.text,
+      right: this.multiplicative(),
+    };
+  }
+  return left;
+};
+AST.prototype.equality = function () {
+  var left = this.relational();
+  var token;
+  while ((token = this.expect("==", "!=", "===", "!=="))) {
+    left = {
+      type: AST.BinaryExpression,
+      left: left,
+      operator: token.text,
+      right: this.relational(),
+    };
+  }
+  return left;
+};
+AST.prototype.relational = function () {
+  var left = this.additive();
+  var token;
+  while ((token = this.expect("<", ">", "<=", ">="))) {
+    left = {
+      type: AST.BinaryExpression,
+      left: left,
+      operator: token.text,
+      right: this.additive(),
+    };
+  }
+  return left;
+};
+AST.prototype.logicalOR = function () {
+  var left = this.logicalAND();
+  var token;
+  while ((token = this.expect("||"))) {
+    left = {
+      type: AST.LogicalExpression,
+      left: left,
+      operator: token.text,
+      right: this.logicalAND(),
+    };
+  }
+  return left;
+};
+AST.prototype.logicalAND = function () {
+  var left = this.equality();
+  var token;
+  while ((token = this.expect("&&"))) {
+    left = {
+      type: AST.LogicalExpression,
+      left: left,
+      operator: token.text,
+      right: this.equality(),
+    };
+  }
+  return left;
+};
+AST.prototype.ternary = function () {
+  var test = this.logicalOR();
+  if (this.expect("?")) {
+    var consequent = this.assignment();
+    if (this.consume(":")) {
+      var alternate = this.assignment();
+      return {
+        type: AST.ConditionalExpression,
+        test: test,
+        consequent: consequent,
+        alternate: alternate,
+      };
+    }
+  }
+  returntest;
+};
 function ASTCompiler(astBuilder) {
   this.astBuilder = astBuilder;
 }
@@ -319,16 +473,21 @@ ASTCompiler.prototype.compile = function (text) {
     (this.state.vars.length ? "var" + this.state.vars.join(",") + ";" : "") +
     this.state.body.join("") +
     "}; return fn;";
-  return new Function("ensureSafeMemberName", "ensureSafeObject",'ensureSafeFunction', fnString)(
-    ensureSafeMemberName,ensureSafeObject,ensureSafeFunction
-  );
+  return new Function(
+    "ensureSafeMemberName",
+    "ensureSafeObject",
+    "ensureSafeFunction",
+    "ifDefined",
+    fnString
+  )(ensureSafeMemberName, ensureSafeObject, ensureSafeFunction, ifDefined);
 };
 
 ASTCompiler.prototype.recurse = function (ast, context, create) {
   var intoId;
   switch (ast.type) {
     case AST.Program:
-      this.state.body.push("return", this.recurse(ast.body), ";");
+      _.forEach(_.initial(ast.body),function(stmt) {this.state.body.push(this.recurse(stmt),';');},this);
+      this.state.body.push('return',this.recurse(_.last(ast.body)),';');
       break;
     case AST.Literal:
       return this.escape(ast.value);
@@ -474,6 +633,50 @@ ASTCompiler.prototype.recurse = function (ast, context, create) {
         leftExpr,
         "ensureSafeObject(" + this.recurse(ast.right) + ")"
       );
+    case AST.UnaryExpression:
+      return (
+        ast.operator + "(" + this.ifDefined(recurse(ast.argument), 0) + ")"
+      );
+    case AST.BinaryExpression:
+      if (ast.operator === "+" || ast.operator === "-") {
+        return (
+          "(" +
+          this.ifDefined(this.recurse(ast.left), 0) +
+          ")" +
+          ast.operator +
+          "(" +
+          this.ifDefined(this.recurse(ast.right), 0) +
+          ")"
+        );
+      } else {
+        return;
+        "(" +
+          this.recurse(ast.left) +
+          ")" +
+          ast.operator +
+          "(" +
+          this.recurse(ast.right) +
+          ")";
+      }
+      break;
+    case AST.LogicalExpression:
+      intoId = this.nextId();
+      this.state.body.push(this.assign(intoId, this.recurse(ast.left)));
+      this.if_(
+        ast.operator === "&&" ? intoId : this.not(intoId),
+        this.assign(intoId, this.recurse(ast.right))
+      );
+      return intoId;
+    case AST.ConditionalExpression:
+      intoId = this.nextId();
+      var testId = this.nextId();
+      this.state.body.push(this.assign(testId, this.recurse(ast.test)));
+      this.if_(testId, this.assign(intoId, this.recurse(ast.consequent)));
+      this.if_(
+        this.not(testId),
+        this.assign(intoId, this.recurse(ast.alternate))
+      );
+      returnintoId;
   }
 };
 ASTCompiler.prototype.escape = function (value) {
@@ -506,8 +709,8 @@ ASTCompiler.prototype.assign = function (id, value) {
 ASTCompiler.prototype.not = function (e) {
   return "!(" + e + ")";
 };
-ASTCompiler.prototype.addEnsureSafeFunction=function(expr) {
-  this.state.body.push('ensureSafeFunction('+ expr +');');
+ASTCompiler.prototype.addEnsureSafeFunction = function (expr) {
+  this.state.body.push("ensureSafeFunction(" + expr + ");");
 };
 function Parser(lexer) {
   this.lexer = lexer;
@@ -527,6 +730,9 @@ ASTCompiler.prototype.addEnsureSafeMemberName = function (expr) {
 };
 ASTCompiler.prototype.addEnsureSafeObject = function (expr) {
   this.state.body.push("ensureSafeObject(" + expr + ");");
+};
+ASTCompiler.prototype.ifDefined = function (value, defaultValue) {
+  return "ifDefined(" + value + "," + this.escape(defaultValue) + ")";
 };
 Parser.prototype.parse = function (text) {
   return this.astCompiler.compile(text);
@@ -572,7 +778,12 @@ function ensureSafeFunction(obj) {
     if (obj.constructor === obj) {
       throw "Referencing Function in Angular expressions is disallowed!";
     }
-  } elseif(obj === CALL || obj === APPLY || obj === BIND) {throw
-    'Referencing call, apply, or bind in Angular expressions is disallowed!';}
+  } else if (obj === CALL || obj === APPLY || obj === BIND) {
+    throw "Referencing call, apply, or bind in Angular expressions is disallowed!";
+  }
   return obj;
+}
+
+function ifDefined(value, defaultValue) {
+  return typeofvalue === undefined ? defaultValue : value;
 }
