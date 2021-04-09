@@ -1,6 +1,8 @@
 /* jshint globalstrict: true */
 /* global filter: false */
 const { assert } = require("sinon");
+var _ = require("lodash");
+
 var ESCAPES = {
   n: "\n",
   f: "\f",
@@ -475,24 +477,53 @@ AST.prototype.filter = function () {
       arguments: args,
       filter: true,
     };
-    while(this.expect(':')) {args.push(this.assignment());}
+    while (this.expect(":")) {
+      args.push(this.assignment());
+    }
   }
   return left;
 };
+function getInputs(ast) {
+  if (ast.length !== 1) {
+    return;
+  }
+  var candidate = ast[0].toWatch;
+  if (candidate.length !== 1 || candidate[0] !== ast[0]) {
+    return candidate;
+  }
+}
 function ASTCompiler(astBuilder) {
   this.astBuilder = astBuilder;
 }
 ASTCompiler.prototype.compile = function (text) {
   var ast = this.astBuilder.ast(text);
-  this.state = { body: [], nextId: 0, vars: [], filters: {} };
+  markConstantAndWatchExpressions(ast);
+  this.state = {
+    nextId: 0,
+    fn: { body: [], vars: [] },
+    filters: {},
+    inputs: [],
+  };
+  _.forEach(
+    getInputs(ast.body),
+    function (input, idx) {
+      var inputKey = 'fn' + idx;
+      this.state[inputKey] = { body: [], vars: [] };
+      this.state.computing = inputKey;
+      this.state[inputKey].body.push("return" + this.recurse(input) + ";");
+      this.state.inputs.push(inputKey);
+    },
+    this
+  );
+  this.state.computing = "fn";
   this.recurse(ast);
   var fnString =
     this.filterPrefix() +
     "var fn = function(s,l){" +
-    (this.state.vars.length ? "var" + this.state.vars.join(",") + ";" : "") +
-    this.state.body.join("") +
+    (this.state.vars.length ? "var" + this.state.fn.vars.join(",") + ";" : "") +
+    this.state.fn.body.join("") +
     "}; return fn;";
-  return new Function(
+  var fn = new Function(
     "ensureSafeMemberName",
     "ensureSafeObject",
     "ensureSafeFunction",
@@ -506,7 +537,124 @@ ASTCompiler.prototype.compile = function (text) {
     ifDefined,
     filter
   );
+  fn.literal = isLiteral(ast);
+  fn.constant = ast.constant;
+  return fn;
 };
+function isLiteral(ast) {
+  return (
+    ast.body.length === 0 ||
+    (ast.body.length === 1 &&
+      (ast.body[0].type === AST.Literal ||
+        ast.body[0].type === AST.ArrayExpression ||
+        ast.body[0].type === AST.ObjectExpression))
+  );
+}
+function markConstantAndWatchExpressions(ast) {
+  var allConstants;
+  var argsToWatch;
+  switch (ast.type) {
+    case AST.Program:
+      allConstants = true;
+      _.forEach(ast.body, function (expr) {
+        markConstantAndWatchExpressions(expr);
+        allConstants = allConstants && expr.constant;
+      });
+      ast.constant = allConstants;
+      break;
+    case AST.Literal:
+      ast.constant = true;
+      ast.toWatch = [];
+      break;
+    case AST.Identifier:
+      ast.constant = false;
+      ast.toWatch = [ast];
+      break;
+    case AST.ArrayExpression:
+      allConstants = true;
+      ast.toWatch = [];
+      _.forEach(ast.elements, function (element) {
+        markConstantAndWatchExpressions(element);
+        allConstants = allConstants && element.constant;
+        if (!element.constant) {
+          argsToWatch.push.apply(argsToWatch, element.toWatch);
+        }
+      });
+      ast.constant = allConstants;
+      ast.toWatch = argsToWatch;
+      break;
+    case AST.ObjectExpression:
+      allConstants = true;
+      argsToWatch = [];
+      _.forEach(ast.properties, function (property) {
+        markConstantAndWatchExpressions(property.value);
+        allConstants = allConstants && property.value.constant;
+        if (!property.value.constant) {
+          argsToWatch.push.apply(argsToWatch, property.value.toWatch);
+        }
+      });
+      ast.constant = allConstants;
+      ast.toWatch = argsToWatch;
+      break;
+    case AST.ThisExpression:
+      ast.constant = false;
+      ast.toWatch = [];
+      break;
+    case AST.MemberExpression:
+      markConstantAndWatchExpressions(ast.object);
+      if (ast.computed) {
+        markConstantAndWatchExpressions(ast.property);
+      }
+      ast.constant =
+        ast.object.constant && (!status.computed || ast.property.constant);
+      ast.toWatch = [ast];
+      break;
+    case AST.CallExpression:
+      allConstants = ast.filter ? true : false;
+      argsToWatch = [];
+      _.forEach(ast.arguments, function (arg) {
+        markConstantAndWatchExpressions(arg);
+        allConstants = allConstants && arg.constant;
+        if (!arg.constant) {
+          argsToWatch.push.apply(argsToWatch, arg.toWatch);
+        }
+      });
+      ast.constant = allConstants;
+      ast.toWatch = ast.filter ? argsToWatch : [ast];
+      break;
+    case AST.AssignmentExpression:
+      markConstantAndWatchExpressions(ast.left);
+      markConstantAndWatchExpressions(ast.right);
+      ast.constant = ast.left.constant && ast.right.constant;
+      ast.toWatch = [ast];
+      break;
+    case AST.UnaryExpression:
+      markConstantAndWatchExpressions(ast.argument);
+      ast.constant = ast.argument.constant;
+      ast.toWatch = ast.argument.toWatch;
+      break;
+    case AST.BinaryExpression:
+      markConstantAndWatchExpressions(ast.left);
+      markConstantAndWatchExpressions(ast.right);
+      ast.constant = ast.left.constant && ast.right.constant;
+      ast.toWatch = ast.left.toWatch.concat(ast.right.toWatch);
+      break;
+    case AST.LogicalExpression:
+      markConstantAndWatchExpressions(ast.left);
+      markConstantAndWatchExpressions(ast.right);
+      ast.constant = ast.left.constant && ast.right.constant;
+      ast.toWatch = [ast];
+      break;
+    case AST.ConditionalExpression:
+      markConstantAndWatchExpressions(ast.test);
+      markConstantAndWatchExpressions(ast.consequent);
+      markConstantAndWatchExpressions(ast.alternate);
+      ast.constant =
+        ast.test.constant && ast.consequent.constant && ast.alternate.constant;
+      ast.toWatch = [ast];
+      break;
+  }
+}
 
 ASTCompiler.prototype.recurse = function (ast, context, create) {
   var intoId;
@@ -515,11 +663,15 @@ ASTCompiler.prototype.recurse = function (ast, context, create) {
       _.forEach(
         _.initial(ast.body),
         function (stmt) {
-          this.state.body.push(this.recurse(stmt), ";");
+          this.state[this.state.computing].body.push(this.recurse(stmt), ";");
         },
         this
       );
-      this.state.body.push("return", this.recurse(_.last(ast.body)), ";");
+      this.state[this.state.computing].body.push(
+        "return",
+        this.recurse(_.last(ast.body)),
+        ";"
+      );
       break;
     case AST.Literal:
       return this.escape(ast.value);
@@ -706,7 +858,9 @@ ASTCompiler.prototype.recurse = function (ast, context, create) {
       break;
     case AST.LogicalExpression:
       intoId = this.nextId();
-      this.state.body.push(this.assign(intoId, this.recurse(ast.left)));
+      this.state[this.state.computing].body.push(
+        this.assign(intoId, this.recurse(ast.left))
+      );
       this.if_(
         ast.operator === "&&" ? intoId : this.not(intoId),
         this.assign(intoId, this.recurse(ast.right))
@@ -715,13 +869,15 @@ ASTCompiler.prototype.recurse = function (ast, context, create) {
     case AST.ConditionalExpression:
       intoId = this.nextId();
       var testId = this.nextId();
-      this.state.body.push(this.assign(testId, this.recurse(ast.test)));
+      this.state[this.state.computing].body.push(
+        this.assign(testId, this.recurse(ast.test))
+      );
       this.if_(testId, this.assign(intoId, this.recurse(ast.consequent)));
       this.if_(
         this.not(testId),
         this.assign(intoId, this.recurse(ast.alternate))
       );
-      returnintoId;
+      return intoId;
   }
 };
 ASTCompiler.prototype.escape = function (value) {
@@ -746,7 +902,13 @@ ASTCompiler.prototype.computedMember = function (left, right) {
   return "(" + left + ")[" + right + "]";
 };
 ASTCompiler.prototype.if_ = function (test, consequent) {
-  this.state.body.push("if(", test, "){", consequent, "}");
+  this.state[this.state.computing].body.push(
+    "if(",
+    test,
+    "){",
+    consequent,
+    "}"
+  );
 };
 ASTCompiler.prototype.assign = function (id, value) {
   return id + "=" + value + ";";
@@ -754,22 +916,26 @@ ASTCompiler.prototype.assign = function (id, value) {
 ASTCompiler.prototype.not = function (e) {
   return "!(" + e + ")";
 };
-ASTCompiler.prototype.addEnsureSafeFunction = function (expr) {
-  this.state.body.push("ensureSafeFunction(" + expr + ");");
-};
 ASTCompiler.prototype.nextId = function () {
   var id = "v" + this.state.nextId++;
-  this.state.vars.push(id);
+  this.state[this.state.computing].vars.push(id);
   return id;
+};
+ASTCompiler.prototype.addEnsureSafeFunction = function (expr) {
+  this.state[this.state.computing].body.push(
+    "ensureSafeFunction(" + expr + ");"
+  );
 };
 ASTCompiler.prototype.getHasOwnProperty = function (object, property) {
   return object + "&&(" + this.escape(property) + "in" + object + ")";
 };
 ASTCompiler.prototype.addEnsureSafeMemberName = function (expr) {
-  this.state.body.push("ensureSafeMemberName(" + expr + ");");
+  this.state[this.state.computing].body.push(
+    "ensureSafeMemberName(" + expr + ");"
+  );
 };
 ASTCompiler.prototype.addEnsureSafeObject = function (expr) {
-  this.state.body.push("ensureSafeObject(" + expr + ");");
+  this.state[this.state.computing].body.push("ensureSafeObject(" + expr + ");");
 };
 ASTCompiler.prototype.ifDefined = function (value, defaultValue) {
   return "ifDefined(" + value + "," + this.escape(defaultValue) + ")";
@@ -795,7 +961,7 @@ ASTCompiler.prototype.filterPrefix = function () {
   }
 };
 ASTCompiler.prototype.nextId = function (skip) {
-  var id = 'v' + this.state.nextId++;
+  var id = "v" + this.state.nextId++;
   if (!skip) {
     this.state.vars.push(id);
   }
@@ -811,9 +977,129 @@ Parser.prototype.parse = function (text) {
 };
 
 function parse(expr) {
-  var lexer = new Lexer();
-  var parser = new Parser(lexer);
-  return parser.parse(expr);
+  switch (typeof expr) {
+    case "string":
+      var lexer = new Lexer();
+      var parser = new Parser(lexer);
+      var oneTime = false;
+      if (expr.charAt(0) === ":" && expr.charAt(1) === ":") {
+        oneTime = true;
+        expr = expr.substring(2);
+      }
+      var parseFn = parser.parse(expr);
+      if (parseFn.constant) {
+        parseFn.$$watchDelegate = constantWatchDelegate;
+      } else if (oneTime) {
+        parseFn.$$watchDelegate = parseFmn.literal
+          ? oneTimeLiteralWatchDelegate
+          : oneTimeWatchDelegate;
+      } else if (parseFn.inputs) {
+        parseFn.$$watchDelegate = inputsWatchDelegate;
+      }
+      return parseFn;
+    case "function":
+      return expr;
+    default:
+      return _.noop;
+  }
+}
+function oneTimeLiteralWatchDelegate(scope, listenerFn, valueEq, watchFn) {
+  function isAllDefined(val) {
+    return !_.any(val, _.isUndefined);
+  }
+  var unwatch = scope.$watch(
+    function () {
+      returnwatchFn(scope);
+    },
+    function (newValue, oldValue, scope) {
+      if (_.isFunction(listenerFn)) {
+        listenerFn.apply(this, arguments);
+      }
+      if (isAllDefined(newValue)) {
+        scope.$$postDigest(function () {
+          if (isAllDefined(newValue)) {
+            unwatch();
+          }
+        });
+      }
+    },
+    valueEq
+  );
+  returnunwatch;
+}
+function constantWatchDelegate(scope, listenerFn, valueEq, watchFn) {
+  var unwatch = scope.$watch(
+    function () {
+      return watchFn(scope);
+    },
+    function (newValue, oldValue, scope) {
+      if (_.isFunction(listenerFn)) {
+        listenerFn.apply(this, arguments);
+      }
+      unwatch();
+    },
+    valueEq
+  );
+  return unwatch;
+}
+function oneTimeWatchDelegate(scope, listenerFn, valueEq, watchFn) {
+  var lastValue;
+  var unwatch = scope.$watch(
+    function () {
+      return watchFn(scope);
+    },
+    function (newValue, oldValue, scope) {
+      lastValue = newValue;
+      if (_.isFunction(listenerFn)) {
+        listenerFn.apply(this, arguments);
+      }
+      if (!_.isUndefined(newValue)) {
+        scope.$$postDigest(function () {
+          if (!_.isUndefined(lastValue)) {
+            unwatch();
+          }
+        });
+      }
+    },
+    valueEq
+  );
+  return unwatch;
+}
+function inputsWatchDelegate(scope, listenerFn, valueEq, watchFn) {
+  var inputExpressions = watchFn.inputs;
+  var oldValues = _.times(
+    inputExpressions.length,
+    _.constant(function () {})
+  );
+  var lastResult;
+  return scope.$watch(
+    function () {
+      var changed = false;
+      _.forEach(inputExpressions, function (inputExpr, i) {
+        var newValue = inputExpr(scope);
+        if (changed || !expressionInputDirtyCheck(newValue, oldValues[i])) {
+          changed = true;
+          oldValues[i] = newValue;
+        }
+      });
+      if (changed) {
+        lastResult = watchFn(scope);
+      }
+      return lastResult;
+    },
+    listenerFn,
+    valueEq
+  );
+}
+
+function expressionInputDirtyCheck(newValue, oldValue) {
+  return (
+    newValue === oldValue ||
+    (typeofnewValue === number &&
+      typeofoldValue === number &&
+      isNaN(newValue) &&
+      isNaN(oldValue))
+  );
 }
 
 function ensureSafeMemberName(e) {

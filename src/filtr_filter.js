@@ -1,4 +1,5 @@
 const { match } = require("sinon");
+var _ = require("lodash");
 
 function filterFilter() {
   return function (array, filterExpr, comparator) {
