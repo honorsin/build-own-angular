@@ -2,6 +2,7 @@
 /* global filter: false */
 const { assert } = require("sinon");
 var _ = require("lodash");
+const { filter } = require("lodash");
 
 var ESCAPES = {
   n: "\n",
@@ -495,19 +496,57 @@ function getInputs(ast) {
 function ASTCompiler(astBuilder) {
   this.astBuilder = astBuilder;
 }
+function isAssignable(ast) {
+  return ast.type === AST.Identifier || ast.type == AST.MemberExpression;
+}
+function assignableAST(ast) {
+  if (ast.body.length == 1 && isAssignable(ast.body[0])) {
+    return {
+      type: AST.AssignmentExpression,
+      left: ast.body[0],
+      right: { type: AST.NGValueParameter },
+    };
+  }
+}
+ASTCompiler.prototype.watchFns = function () {
+  var result = [];
+  _.forEach(
+    this.state.inputs,
+    function (inputName) {
+      result.push(
+        "var",
+        inputName,
+        "=function(s) {",
+        this.state[inputName].vars.length
+          ? "var" + this.state[inputName].vars.join(",") + ";"
+          : "",
+        this.state[inputName].body.join(""),
+        "};"
+      );
+    },
+    this
+  );
+  if (result.length) {
+    result.push("fn.inputs = [,this.state.inputs.join(,),];");
+  }
+  return result.join();
+};
 ASTCompiler.prototype.compile = function (text) {
   var ast = this.astBuilder.ast(text);
+  var extra = "";
   markConstantAndWatchExpressions(ast);
   this.state = {
     nextId: 0,
     fn: { body: [], vars: [] },
     filters: {},
+    assign: { body: [], vars: [] },
     inputs: [],
   };
+  this.stage = "inputs";
   _.forEach(
     getInputs(ast.body),
     function (input, idx) {
-      var inputKey = 'fn' + idx;
+      var inputKey = "fn" + idx;
       this.state[inputKey] = { body: [], vars: [] };
       this.state.computing = inputKey;
       this.state[inputKey].body.push("return" + this.recurse(input) + ";");
@@ -515,6 +554,20 @@ ASTCompiler.prototype.compile = function (text) {
     },
     this
   );
+  this.stage = "assign";
+  var assignable = assignableAST(ast);
+  if (assignable) {
+    this.state.computing = "assign";
+    this.state.assign.body.push(this.recurse(assignable));
+    extra =
+      "fn.assign = function(s,v,l){" +
+      (this.state.assign.vars.length
+        ? "var" + this.state.assign.vars.join(",") + ";"
+        : "") +
+      this.state.assign.body.join("") +
+      "};";
+  }
+  this.stage = "main";
   this.state.computing = "fn";
   this.recurse(ast);
   var fnString =
@@ -522,7 +575,10 @@ ASTCompiler.prototype.compile = function (text) {
     "var fn = function(s,l){" +
     (this.state.vars.length ? "var" + this.state.fn.vars.join(",") + ";" : "") +
     this.state.fn.body.join("") +
-    "}; return fn;";
+    "}; " +
+    this.watchFns() +
+    extra +
+    "return fn;";
   var fn = new Function(
     "ensureSafeMemberName",
     "ensureSafeObject",
@@ -610,7 +666,8 @@ function markConstantAndWatchExpressions(ast) {
       ast.toWatch = [ast];
       break;
     case AST.CallExpression:
-      allConstants = ast.filter ? true : false;
+      var stateless = ast.filter && !filter(ast.callee.name).$stateful;
+      allConstants = stateless ? true : false;
       argsToWatch = [];
       _.forEach(ast.arguments, function (arg) {
         markConstantAndWatchExpressions(arg);
@@ -620,7 +677,7 @@ function markConstantAndWatchExpressions(ast) {
         }
       });
       ast.constant = allConstants;
-      ast.toWatch = ast.filter ? argsToWatch : [ast];
+      ast.toWatch = stateless ? argsToWatch : [ast];
       break;
     case AST.AssignmentExpression:
       markConstantAndWatchExpressions(ast.left);
@@ -653,6 +710,8 @@ function markConstantAndWatchExpressions(ast) {
         ast.test.constant && ast.consequent.constant && ast.alternate.constant;
       ast.toWatch = [ast];
       break;
+    case AST.NGValueParameter:
+      return "v";
   }
 }
 
@@ -701,24 +760,31 @@ ASTCompiler.prototype.recurse = function (ast, context, create) {
     case AST.Identifier:
       ensureSafeMemberName(ast.name);
       intoId = this.nextId();
+      var localsCheck;
+      if (this.stage === "inputs") {
+        localsCheck = "false";
+      } else {
+        localsCheck = this.getHasOwnProperty("l", ast.name);
+      }
       this.if_(
-        this.getHasOwnProperty("l", ast.name),
+        localsCheck,
         this.assign(intoId, this.nonComputedMember("l", ast.name))
       );
+
       if (create) {
         this.if_(
-          this.not(this.getHasOwnProperty("l", ast.name)) +
+          this.not(localsCheck) +
             "&& s &&" +
             this.not(this.getHasOwnProperty("s", ast.name)),
           this.assign(this.nonComputedMember("s", ast.name), "{}")
         );
       }
       this.if_(
-        this.not(this.getHasOwnProperty("l", ast.name)) + "&& s",
+        this.not(localsCheck) + "&& s",
         this.assign(intoId, this.nonComputedMember("s", ast.name))
       );
       if (context) {
-        context.context = this.getHasOwnProperty("l", ast.name) + "?l:s";
+        context.context = localsCheck + "?l:s";
         context.name = ast.name;
         context.computed = false;
       }
