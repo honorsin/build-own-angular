@@ -13,10 +13,9 @@ function setupModuleLoader(window) {
     var moduleInstance = {
       name: name,
       requires: requires,
-      constant:function(key, value) {
-        invokeQueue.push([constant, [key, value]]);
-      },
-      _invokeQueue: invokeQueue
+      constant:invokeLater('constant','unshift'),
+      provider:invokeLater('provider'),
+      _invokeQueue: invokeQueue,
     };
     modules[name] = moduleInstance;
     return moduleInstance;
@@ -27,6 +26,12 @@ function setupModuleLoader(window) {
     } else {
       throw "Module" + name + "is not available!";
     }
+  };
+  var invokeLater = function (method, arrayMethod) {
+    return function () {
+      invokeQueue[arrayMethod || 'push']([method, arguments]);
+      return moduleInstance;
+    };
   };
   ensure(angular, "module", function () {
     var modules = {};
