@@ -1,7 +1,7 @@
 /* jshint globalstrict: true */
 /* global createInjector: false, setupModuleLoader: false, angular: false */
 "use strict";
-describe(injector, function () {
+describe('injector', function () {
   beforeEach(function () {
     delete window.angular;
     setupModuleLoader(window);

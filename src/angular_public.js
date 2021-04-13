@@ -1,5 +1,7 @@
+"use strict";
+var setupModuleLoader = require('./loader');
 function publishExternalAPI() {
-  "use strict";
+
   setupModuleLoader(window);
 
   var ngModule =angular.module('ng', []);
@@ -7,3 +9,5 @@ function publishExternalAPI() {
   ngModule.provider('$parse', $ParseProvider);
   ngModule.provider('$rootScope', $RootScopeProvider);
 }
+
+module.exports = publishExternalAPI;

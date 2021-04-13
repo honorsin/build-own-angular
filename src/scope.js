@@ -4,9 +4,8 @@
 var _ = require("lodash");
 var parse = require("./parse");
 
-function initWatchVal() {}
 
-function $RootScopeProvide() {
+function $RootScopeProvide () {
   var TTL = 10;
   this.digestTtl = function (value) {
     if (_.isNumber(value)) {
@@ -17,16 +16,29 @@ function $RootScopeProvide() {
   this.$get = [
     "$parse",
     function ($parse) {
-      this.$$watchers = [];
-      this.$$lastDirtyWatch = null;
-      this.$$asyncQueue = [];
-      this.$$applyAsyncQueue = [];
-      this.$$applyAsyncId = null;
-      this.$$postDigestQueue = [];
-      this.$root = this;
-      this.$$children = [];
-      this.$$listeners = {};
-      this.$$phase = null;
+      function initWatchVal() {}
+
+      function isArrayLike(obj) {
+        if (_.isNull(obj) || _.isUndefined(obj)) {
+          return false;
+        }
+        var length = obj.length;
+        return length === 0 ||
+            (_.isNumber(length) && length > 0 && (length - 1) in obj);
+      }
+
+      function Scope() {
+        this.$$watchers = [];
+        this.$$lastDirtyWatch = null;
+        this.$$asyncQueue = [];
+        this.$$applyAsyncQueue = [];
+        this.$$applyAsyncId = null;
+        this.$$postDigestQueue = [];
+        this.$root = this;
+        this.$$children = [];
+        this.$$listeners = {};
+        this.$$phase = null;
+      }
 
       Scope.prototype.$beginPhase = function (phase) {
         if (this.$$phase) {
@@ -448,4 +460,4 @@ function $RootScopeProvide() {
   ];
 }
 
-module.exports = $RootScopeProvider;
+module.exports = $RootScopeProvide;

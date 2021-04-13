@@ -1,4 +1,6 @@
-const { filter } = require("lodash");
+'use strict';
+
+var _ = require('lodash');
 
 function $FilterProvider ($provide) {
   var filters = {};

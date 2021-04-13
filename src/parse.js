@@ -1,9 +1,7 @@
 /* jshint globalstrict: true */
 /* global filter: false */
 "use strict";
-var { assert } = require("sinon");
 var _ = require("lodash");
-var { filter } = require("lodash");
 
 var ESCAPES = {
   n: "\n",
@@ -42,7 +40,7 @@ Lexer.prototype.lex = function (text) {
   this.ch = undefined;
   this.tokens = [];
 
-  while (index < this.text.length) {
+  while (this.index < this.text.length) {
     this.ch = this.text.charAt(this.index);
     if (
       this.isNumber(this.ch) ||
@@ -116,7 +114,7 @@ Lexer.prototype.readNumber = function () {
     value: Number(number),
   });
 };
-Lexer.prototype.readString = function () {
+Lexer.prototype.readString = function (quote) {
   this.index++;
   var string = "";
   var rawString = quote;
@@ -125,7 +123,7 @@ Lexer.prototype.readString = function () {
     var ch = this.text.charAt(this.index);
     rawString += ch;
     if (escape) {
-      if (ch === u) {
+      if (ch === 'u') {
         var hex = this.text.substring(this.index + 1, this.index + 5);
         if (!hex.match(/[\da-f]{4}/i)) {
           throw "Invalid unicode escape";
@@ -340,7 +338,7 @@ AST.prototype.object = function () {
 AST.prototype.identifier = function () {
   return { type: AST.Identifier, name: this.consume().text };
 };
-AST.prototype.peek = function (e) {
+AST.prototype.peek = function (e1, e2, e3, e4) {
   if (this.tokens.length > 0) {
     var text = this.tokens[0].text;
     if (
@@ -961,7 +959,7 @@ ASTCompiler.prototype.escape = function (value) {
 };
 ASTCompiler.prototype.stringEscapeRegex = /[^a-zA-Z0-9]/g;
 ASTCompiler.prototype.stringEscapeFn = function (c) {
-  return "\\u" + (0000 + c.charCodeAt(0).toString(16)).slice(-4);
+  return "\\u" + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
 };
 ASTCompiler.prototype.nonComputedMember = function (left, right) {
   return "(" + left + ")." + right;
@@ -1167,12 +1165,16 @@ function inputsWatchDelegate(scope, listenerFn, valueEq, watchFn) {
 function expressionInputDirtyCheck(newValue, oldValue) {
   return (
     newValue === oldValue ||
-    (typeof newValue === number &&
-      typeof oldValue === number &&
+    (typeof newValue === 'number' &&
+      typeof oldValue === 'number' &&
       isNaN(newValue) &&
       isNaN(oldValue))
   );
 }
+
+var CALL = Function.prototype.call;
+var APPLY = Function.prototype.apply;
+var BIND = Function.prototype.bind;
 
 function ensureSafeMemberName(e) {
   if (

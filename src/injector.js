@@ -2,7 +2,7 @@
 /* global angular: false , HashMap: false*/
 "use strict";
 var _ = require("lodash");
-var HashMap = require("./apis");
+var HashMap = require('./hash_map').HashMap;
 var FN_ARGS = /^function\s*[^\(]*\(\s*([^\)]*)\)/m;
 var FN_ARG = /^\s*(_?)(\S+?)\1\s*$/;
 var STRIP_COMMENTS = /(\/\/.*$)|(\/\*.*?\*\/)/gm;
@@ -184,3 +184,4 @@ function createInjector(modulesToLoad, strictDi) {
   });
   return instanceInjector;
 }
+module.exports = createInjector;

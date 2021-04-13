@@ -62,3 +62,5 @@ function setupModuleLoader(window) {
     };
   });
 }
+
+module.exports = setupModuleLoader;

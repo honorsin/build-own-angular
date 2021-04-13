@@ -662,7 +662,7 @@ describe("Scope", function () {
     it("accepts expressions for watch functions", function () {
       var theValue;
       scope.aValue = 42;
-      scope.$watch(aValue, function (newValue, oldValue, scope) {
+      scope.$watch('aValue', function (newValue, oldValue, scope) {
         theValue = newValue;
       });
       scope.$digest();
@@ -788,8 +788,9 @@ describe("Scope", function () {
 
   describe("$watchGroup", function () {
     var scope;
-    beforeEach(function () {
-      scope = new Scope();
+    beforeEach(function() {
+      publishExternalAPI();
+      scope = createInjector(['ng']).get('$rootScope');
     });
     it("takes watches as an array and calls listener with arrays", function () {
       var gotNewValues, gotOldValues;
@@ -1063,7 +1064,7 @@ describe("Scope", function () {
         }
       );
       parent.$digest();
-      expect(child.aValueWas).toBe(abc);
+      expect(child.aValueWas).toBe('abc');
     });
 
     it("digests from root on $apply", function () {
