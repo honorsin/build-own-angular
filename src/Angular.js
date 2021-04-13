@@ -1,4 +1,5 @@
 "use strict";
+var _ = require('lodash');
 _.mixin({
   isArrayLike: function (obj) {
     if (_.isNull(obj) || _.isUndefined(obj)) {

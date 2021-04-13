@@ -1,23 +1,16 @@
 "use strict";
-/* global Scope: false, register: false */
-/* jshint globalstrict: true */
+/* global publishExternalAPI: false, createInjector: false */
 
 var _ = require("lodash");
-var Scope = require("../src/scope");
-
+var publishExternalAPI = require("../src/angular_public");
+var createInjector = require("../src/injector");
 describe("Scope", function () {
-  it("can be constructed and used as an object", function () {
-    var scope = new Scope();
-    scope.aProperty = 1;
-
-    expect(scope.aProperty).toBe(1);
-  });
-
   describe("digest", function () {
     var scope;
 
     beforeEach(function () {
-      scope = new Scope();
+      publishExternalAPI();
+      scope = createInjector(["ng"]).get($rootScope);
     });
 
     it("calls the listener function of a watch on first $digest", function () {
@@ -692,7 +685,7 @@ describe("Scope", function () {
       expect(scope.$apply("aFunction()")).toBe(42);
     });
     it("accepts expressions in $evalAsync", function (done) {
-      varcalled;
+      var called;
       scope.aFunction = function () {
         called = true;
       };
@@ -718,7 +711,7 @@ describe("Scope", function () {
     it("does not remove one-time-watches until value stays defined", function () {
       scope.aValue = 42;
       scope.$watch("::aValue", function () {});
-      var unwatchDeleter = scope.$watch(aValue, function () {
+      var unwatchDeleter = scope.$watch("aValue", function () {
         delete scope.aValue;
       });
       scope.$digest();
@@ -749,7 +742,7 @@ describe("Scope", function () {
       scope.a = 1;
       scope.b = 2;
       scope.c = 3;
-      scope.$watch([a, b, c], function (value) {
+      scope.$watch("[a, b, c]", function (value) {
         values.push(value);
       });
       scope.$digest();
@@ -765,16 +758,23 @@ describe("Scope", function () {
       expect(values[1]).toEqual([1, 2, 4]);
     });
     it("allows $stateful filter value to change over time", function (done) {
-      register("withTime", function () {
-        return _.extend(
-          function (v) {
-            return new Date().toISOString() + ":" + v;
-          },
-          { $stateful: true }
-        );
-      });
+      var injector = createInjector([
+        "ng",
+        function ($filterProvider) {
+          $filterProvider.register("withTime", function () {
+            return _.extend(
+              function (v) {
+                return new Date().toISOString() + ": " + v;
+              },
+              { $stateful: true }
+            );
+          });
+        },
+      ]);
+      scope = injector.get("$rootScope");
+
       var listenerSpy = jasmine.createSpy();
-      scope.$watch('42 | withTime', listenerSpy);
+      scope.$watch("42 | withTime", listenerSpy);
       scope.$digest();
       var firstValue = listenerSpy.calls.mostRecent().args[0];
       setTimeout(function () {
@@ -933,8 +933,12 @@ describe("Scope", function () {
   });
 
   describe("inheritance", function () {
+    var parent;
+    beforeEach(function () {
+      publishExternalAPI();
+      parent = createInjector(["ng"]).get("$rootScope");
+    });
     it("inherits the parents properties", function () {
-      var parent = new Scope();
       parent.aValue = [1, 2, 3];
 
       var child = parent.$new();
@@ -943,8 +947,6 @@ describe("Scope", function () {
     });
 
     it("does not cause a parent to inherit its properties", function () {
-      var parent = new Scope();
-
       var child = parent.$new();
       child.aValue = [1, 2, 3];
 
@@ -952,8 +954,6 @@ describe("Scope", function () {
     });
 
     it("inherits the parents properties whenever they are defined", function () {
-      var parent = new Scope();
-
       var child = parent.$new();
       parent.aValue = [1, 2, 3];
 
@@ -961,7 +961,6 @@ describe("Scope", function () {
     });
 
     it("can manipulate a parent scopes property", function () {
-      var parent = new Scope();
       var child = parent.$new();
       parent.aValue = [1, 2, 3];
       child.aValue.push(4);
@@ -970,14 +969,13 @@ describe("Scope", function () {
     });
 
     it("can watch a property in the parent", function () {
-      var parent = new Scope();
       var child = parent.$new();
       parent.aValue = [1, 2, 3];
       child.counter = 0;
 
       child.$watch(
         function (scope) {
-          returnscope.aValue;
+          return scope.aValue;
         },
         function (newValue, oldValue, scope) {
           scope.counter++;
@@ -992,7 +990,7 @@ describe("Scope", function () {
     });
 
     it("can be nested at any depth", function () {
-      var a = new Scope();
+      var a = parent;
       var aa = a.$new();
       var aaa = aa.$new();
       var aab = aa.$new();
@@ -1011,7 +1009,6 @@ describe("Scope", function () {
     });
 
     it("shadows a parents property with the same name", function () {
-      var parent = new Scope();
       var child = parent.$new();
       parent.name = "Joe";
       child.name = "Jill";
@@ -1020,7 +1017,6 @@ describe("Scope", function () {
     });
 
     it("does not shadow members of parent scopes attributes", function () {
-      var parent = new Scope();
       var child = parent.$new();
       parent.user = { name: "Joe" };
       child.user.name = "Jill";
@@ -1029,7 +1025,6 @@ describe("Scope", function () {
     });
 
     it("does not digest its parent(s)", function () {
-      var parent = new Scope();
       var child = parent.$new();
       parent.aValue = "abc";
       parent.$watch(
@@ -1045,7 +1040,6 @@ describe("Scope", function () {
     });
 
     it("keeps a record of its children", function () {
-      var parent = new Scope();
       var child1 = parent.$new();
       var child2 = parent.$new();
       var child2_1 = child2.$new();
@@ -1058,7 +1052,6 @@ describe("Scope", function () {
     });
 
     it("digests its children", function () {
-      var parent = new Scope();
       var child = parent.$new();
       parent.aValue = "abc";
       child.$watch(
@@ -1074,14 +1067,13 @@ describe("Scope", function () {
     });
 
     it("digests from root on $apply", function () {
-      varparent = new Scope();
-      varchild = parent.$new();
-      varchild2 = child.$new();
+      var child = parent.$new();
+      var child2 = child.$new();
       parent.aValue = "abc";
       parent.counter = 0;
       parent.$watch(
         function (scope) {
-          returnscope.aValue;
+          return scope.aValue;
         },
         function (newValue, oldValue, scope) {
           scope.counter++;
@@ -1092,14 +1084,13 @@ describe("Scope", function () {
     });
 
     it("schedules a digest from root on $evalAsync", function (done) {
-      var parent = new Scope();
       var child = parent.$new();
       var child2 = child.$new();
       parent.aValue = "abc";
       parent.counter = 0;
       parent.$watch(
         function (scope) {
-          returnscope.aValue;
+          return scope.aValue;
         },
         function (newValue, oldValue, scope) {
           scope.counter++;
@@ -1113,19 +1104,17 @@ describe("Scope", function () {
     });
 
     it("does not have access to parent attributes when isolated", function () {
-      var parent = new Scope();
       var child = parent.$new(true);
       parent.aValue = "abc";
       expect(child.aValue).toBeUndefined();
     });
 
     it("cannot watch parent attributes when isolated", function () {
-      var parent = new Scope();
       var child = parent.$new(true);
       parent.aValue = "abc";
       child.$watch(
         function (scope) {
-          returnscope.aValue;
+          return scope.aValue;
         },
         function (newValue, oldValue, scope) {
           scope.aValueWas = newValue;
@@ -1136,12 +1125,11 @@ describe("Scope", function () {
     });
 
     it("digests its isolated children", function () {
-      varparent = newScope();
-      varchild = parent.$new(true);
+      var child = parent.$new(true);
       child.aValue = "abc";
       child.$watch(
         function (scope) {
-          returnscope.aValue;
+          return scope.aValue;
         },
         function (newValue, oldValue, scope) {
           scope.aValueWas = newValue;
@@ -1152,9 +1140,8 @@ describe("Scope", function () {
     });
 
     it("digests from root on $apply when isolated", function () {
-      varparent = new Scope();
-      varchild = parent.$new(true);
-      varchild2 = child.$new();
+      var child = parent.$new(true);
+      var child2 = child.$new();
       parent.aValue = "abc";
       parent.counter = 0;
       parent.$watch(
@@ -1170,9 +1157,8 @@ describe("Scope", function () {
     });
 
     it("schedules a digest from root on $evalAsync when isolated", function (done) {
-      varparent = new Scope();
-      varchild = parent.$new(true);
-      varchild2 = child.$new();
+      var child = parent.$new(true);
+      var child2 = child.$new();
       parent.aValue = "abc";
       parent.counter = 0;
       parent.$watch(
@@ -1191,7 +1177,6 @@ describe("Scope", function () {
     });
 
     it("executes $evalAsync functions on isolated scopes", function (done) {
-      var parent = new Scope();
       var child = parent.$new(true);
       child.$evalAsync(function (scope) {
         scope.didEvalAsync = true;
@@ -1203,7 +1188,6 @@ describe("Scope", function () {
     });
 
     it("executes $$postDigest functions on isolated scopes", function () {
-      var parent = newScope();
       var child = parent.$new(true);
       child.$$postDigest(function () {
         child.didPostDigest = true;
@@ -1213,8 +1197,8 @@ describe("Scope", function () {
     });
 
     it("can take some other scope as the parent", function () {
-      var prototypeParent = new Scope();
-      var hierarchyParent = new Scope();
+      var prototypeParent = parent.$new();
+      var hierarchyParent = parent.$new();
       var child = prototypeParent.$new(false, hierarchyParent);
       prototypeParent.a = 42;
       expect(child.a).toBe(42);
@@ -1229,7 +1213,6 @@ describe("Scope", function () {
     });
 
     it("is no longer digested when $destroy has been called", function () {
-      var parent = new Scope();
       var child = parent.$new();
       child.aValue = [1, 2, 3];
       child.counter = 0;
@@ -1257,7 +1240,8 @@ describe("Scope", function () {
   describe("$watchCollection", function () {
     var scope;
     beforeEach(function () {
-      scope = newScope();
+      publishExternalAPI();
+      scope = createInjector(["ng"]).get("$rootScope");
     });
 
     it("works like a normal watch for non-collections", function () {
@@ -1288,7 +1272,7 @@ describe("Scope", function () {
       scope.counter = 0;
       scope.$watchCollection(
         function (scope) {
-          returnscope.aValue;
+          return scope.aValue;
         },
         function (newValue, oldValue, scope) {
           scope.counter++;
@@ -1304,7 +1288,7 @@ describe("Scope", function () {
       scope.counter = 0;
       scope.$watchCollection(
         function (scope) {
-          returnscope.arr;
+          return scope.arr;
         },
         function (newValue, oldValue, scope) {
           scope.counter++;
@@ -1344,7 +1328,7 @@ describe("Scope", function () {
       scope.counter = 0;
       scope.$watchCollection(
         function (scope) {
-          returnscope.arr;
+          return scope.arr;
         },
         function (newValue, oldValue, scope) {
           scope.counter++;
@@ -1435,8 +1419,8 @@ describe("Scope", function () {
     });
 
     it("notices an item replaced in a NodeList object", function () {
-      document.documentElement.appendChild(document.createElement(div));
-      scope.arrayLike = document.getElementsByTagName(div);
+      document.documentElement.appendChild(document.createElement("div"));
+      scope.arrayLike = document.getElementsByTagName("div");
       scope.counter = 0;
       scope.$watchCollection(
         function (scope) {
@@ -1540,7 +1524,7 @@ describe("Scope", function () {
       );
       scope.$digest();
       expect(scope.counter).toBe(1);
-      deletescope.obj.a;
+      delete scope.obj.a;
       scope.$digest();
       expect(scope.counter).toBe(2);
       scope.$digest();
@@ -1548,7 +1532,7 @@ describe("Scope", function () {
     });
 
     it("does not consider any object with a length property an array", function () {
-      scope.obj = { length: 42, otherKey: abc };
+      scope.obj = { length: 42, otherKey: "abc" };
       scope.counter = 0;
       scope.$watchCollection(
         function (scope) {
@@ -1559,7 +1543,7 @@ describe("Scope", function () {
         }
       );
       scope.$digest();
-      scope.obj.newKey = def;
+      scope.obj.newKey = "def";
       scope.$digest();
       expect(scope.counter).toBe(2);
     });
@@ -1634,7 +1618,8 @@ describe("Scope", function () {
     var child;
     var isolatedChild;
     beforeEach(function () {
-      parent = newScope();
+      publishExternalAPI();
+      parent = createInjector(["ng"]).get("$rootScope");
       scope = parent.$new();
       child = scope.$new();
       isolatedChild = scope.$new(true);
@@ -1663,7 +1648,7 @@ describe("Scope", function () {
       expect(child.$$listeners).toEqual({ someEvent: [listener2] });
       expect(isolatedChild.$$listeners).toEqual({ someEvent: [listener3] });
     });
-    _.forEach([$emit, $broadcast], function (method) {
+    _.forEach(["$emit", "$broadcast"], function (method) {
       it(
         "calls listeners registered for matching events on " + method,
         function () {
@@ -1676,71 +1661,93 @@ describe("Scope", function () {
           expect(listener2).not.toHaveBeenCalled();
         }
       );
-    });
-    it(
-      "passes an event object with a name to listeners on " + method,
-      function () {
+      it(
+        "passes an event object with a name to listeners on " + method,
+        function () {
+          var listener = jasmine.createSpy();
+          scope.$on("someEvent", listener);
+          scope[method]("someEvent");
+          expect(listener).toHaveBeenCalled();
+          expect(listener.calls.mostRecent().args[0].name).toEqual("someEvent");
+        }
+      );
+      it(
+        "passes the same event object to each listener on " + method,
+        function () {
+          var listener1 = jasmine.createSpy();
+          var listener2 = jasmine.createSpy();
+          scope.$on("someEvent", listener1);
+          scope.$on("someEvent", listener2);
+          scope[method]("someEvent");
+          var event1 = listener1.calls.mostRecent().args[0];
+          var event2 = listener2.calls.mostRecent().args[0];
+          expect(event1).toBe(event2);
+        }
+      );
+
+      it("passes additional arguments to listeners on " + method, function () {
         var listener = jasmine.createSpy();
         scope.$on("someEvent", listener);
+        scope[method]("someEvent", "and", ["additional", arguments], "...");
+        expect(listener.calls.mostRecent().args[1]).toEqual("and");
+        expect(listener.calls.mostRecent().args[2]).toEqual([
+          "additional",
+          arguments,
+        ]);
+        expect(listener.calls.mostRecent().args[3]).toEqual("...");
+      });
+
+      it("returns the event object on " + method, function () {
+        var returnedEvent = scope[method]("someEvent");
+        expect(returnedEvent).toBeDefined();
+        expect(returnedEvent.name).toEqual("someEvent");
+      });
+
+      it("can be deregistered " + method, function () {
+        var listener = jasmine.createSpy();
+        var deregister = scope.$on("someEvent", listener);
+        deregister();
         scope[method]("someEvent");
-        expect(listener).toHaveBeenCalled();
-        expect(listener.calls.mostRecent().args[0].name).toEqual(someEvent);
-      }
-    );
-    it(
-      "passes the same event object to each listener on " + method,
-      function () {
-        var listener1 = jasmine.createSpy();
+        expect(listener).not.toHaveBeenCalled();
+      });
+
+      it(
+        "does not skip the next listener when removed on " + method,
+        function () {
+          var deregister;
+          var listener = function () {
+            deregister();
+          };
+          var nextListener = jasmine.createSpy();
+          deregister = scope.$on("someEvent", listener);
+          scope.$on("someEvent", nextListener);
+          scope[method]("someEvent");
+          expect(nextListener).toHaveBeenCalled();
+        }
+      );
+      it(
+        "is sets defaultPrevented when preventDefault called on " + method,
+        function () {
+          var listener = function (event) {
+            event.preventDefault();
+          };
+          scope.$on("someEvent", listener);
+          var event = scope[method]("someEvent");
+          expect(event.defaultPrevented).toBe(true);
+        }
+      );
+      it("does not stop on exceptions on " + method, function () {
+        var listener1 = function (event) {
+          throw "listener1 throwing an exception";
+        };
         var listener2 = jasmine.createSpy();
         scope.$on("someEvent", listener1);
         scope.$on("someEvent", listener2);
         scope[method]("someEvent");
-        var event1 = listener1.calls.mostRecent().args[0];
-        var event2 = listener2.calls.mostRecent().args[0];
-        expect(event1).toBe(event2);
-      }
-    );
-
-    it("passes additional arguments to listeners on " + method, function () {
-      var listener = jasmine.createSpy();
-      scope.$on("someEvent", listener);
-      scope[method]("someEvent", and, [additional, arguments], "...");
-      expect(listener.calls.mostRecent().args[1]).toEqual(and);
-      expect(listener.calls.mostRecent().args[2]).toEqual([
-        additional,
-        arguments,
-      ]);
-      expect(listener.calls.mostRecent().args[3]).toEqual("...");
+        expect(listener2).toHaveBeenCalled();
+      });
     });
 
-    it("returns the event object on " + method, function () {
-      var returnedEvent = scope[method](someEvent);
-      expect(returnedEvent).toBeDefined();
-      expect(returnedEvent.name).toEqual(someEvent);
-    });
-
-    it("can be deregistered " + method, function () {
-      var listener = jasmine.createSpy();
-      var deregister = scope.$on(someEvent, listener);
-      deregister();
-      scope[method]("someEvent");
-      expect(listener).not.toHaveBeenCalled();
-    });
-
-    it(
-      "does not skip the next listener when removed on " + method,
-      function () {
-        varderegister;
-        var listener = function () {
-          deregister();
-        };
-        var nextListener = jasmine.createSpy();
-        deregister = scope.$on("someEvent", listener);
-        scope.$on(someEvent, nextListener);
-        scope[method]("someEvent");
-        expect(nextListener).toHaveBeenCalled();
-      }
-    );
     it("propagates up the scope hierarchy on $emit", function () {
       var parentListener = jasmine.createSpy();
       var scopeListener = jasmine.createSpy();
@@ -1781,8 +1788,8 @@ describe("Scope", function () {
       scope.$on("someEvent", scopeListener);
       child.$on("someEvent", childListener);
       scope.$broadcast("someEvent");
-      varscopeEvent = scopeListener.calls.mostRecent().args[0];
-      varchildEvent = childListener.calls.mostRecent().args[0];
+      var scopeEvent = scopeListener.calls.mostRecent().args[0];
+      var childEvent = childListener.calls.mostRecent().args[0];
       expect(scopeEvent).toBe(childEvent);
     });
     it("attaches targetScope on $emit", function () {
@@ -1823,7 +1830,7 @@ describe("Scope", function () {
       var scopeListener = function (event) {
         currentScopeOnScope = event.currentScope;
       };
-      varchildListener = function (event) {
+      var childListener = function (event) {
         currentScopeOnChild = event.currentScope;
       };
       scope.$on("someEvent", scopeListener);
@@ -1843,7 +1850,7 @@ describe("Scope", function () {
     });
     it("sets currentScope to null after propagation on $broadcast", function () {
       var event;
-      varscopeListener = function (evt) {
+      var scopeListener = function (evt) {
         event = evt;
       };
       scope.$on("someEvent", scopeListener);
@@ -1870,26 +1877,15 @@ describe("Scope", function () {
       scope.$emit("someEvent");
       expect(listener2).toHaveBeenCalled();
     });
-    it(
-      "is sets defaultPrevented when preventDefault called on " + method,
-      function () {
-        var listener = function (event) {
-          event.preventDefault();
-        };
-        scope.$on("someEvent", listener);
-        varevent = scope[method]("someEvent");
-        expect(event.defaultPrevented).toBe(true);
-      }
-    );
     it("fires $destroy when destroyed", function () {
       var listener = jasmine.createSpy();
-      scope.$on($destroy, listener);
+      scope.$on("$destroy", listener);
       scope.$destroy();
       expect(listener).toHaveBeenCalled();
     });
     it("fires $destroy on children destroyed", function () {
       var listener = jasmine.createSpy();
-      child.$on($destroy, listener);
+      child.$on("$destroy", listener);
       scope.$destroy();
       expect(listener).toHaveBeenCalled();
     });
@@ -1900,15 +1896,39 @@ describe("Scope", function () {
       scope.$emit("myEvent");
       expect(listener).not.toHaveBeenCalled();
     });
-    it("does not stop on exceptions on " + method, function () {
-      var listener1 = function (event) {
-        throw "listener1 throwing an exception";
-      };
-      var listener2 = jasmine.createSpy();
-      scope.$on("someEvent", listener1);
-      scope.$on("someEvent", listener2);
-      scope[method]("someEvent");
-      expect(listener2).toHaveBeenCalled();
+  });
+  describe('TTL configurability', function() {
+
+    beforeEach(function() {
+      publishExternalAPI();
     });
+
+    it('allows configuring a shorter TTL', function() {
+      var injector = createInjector(['ng', function($rootScopeProvider) {
+        $rootScopeProvider.digestTtl(5);
+      }]);
+      var scope = injector.get('$rootScope');
+
+      scope.counterA = 0;
+      scope.counterB = 0;
+
+      scope.$watch(
+        function(scope) { return scope.counterA; },
+        function(newValue, oldValue, scope) {
+          if (scope.counterB < 5) {
+            scope.counterB++;
+          }
+        }
+      );
+      scope.$watch(
+        function(scope) { return scope.counterB; },
+        function(newValue, oldValue, scope) {
+          scope.counterA++;
+        }
+      );
+
+      expect(function() { scope.$digest(); }).toThrow();
+    });
+
   });
 });

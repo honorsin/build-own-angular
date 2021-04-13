@@ -20,7 +20,6 @@ function filterFilter() {
     return_.filter(array, predicateFn);
   };
 }
-register(filter, filterFilter);
 
 function createPredicateFn(expression, comparator) {
   var shouldMatchPrimitives = _.isObject(expression) && $inexpression;

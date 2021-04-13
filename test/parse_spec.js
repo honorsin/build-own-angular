@@ -1,7 +1,16 @@
 /* jshint globalstrict: true */ /* global parse: false */
+/* global publishExternalAPI: false, createInjector: false */
 "use strict";
+var _ = require("lodash");
+var publishExternalAPI = require("../src/angular_public");
+var createInjector = require("../src/injector");
 
 describe("parse", function () {
+  var parse;
+  beforeEach(function () {
+    publishExternalAPI();
+    parse = createInjector(["ng"]).get("$parse");
+  });
   it("can parse an integer", function () {
     var fn = parse("42");
     expect(fn).toBeDefined();
@@ -28,11 +37,11 @@ describe("parse", function () {
     expect(fn()).toBe(42);
   });
   it("can parse scientific notation with the + sign", function () {
-    varfn = parse(".42e+2");
+    var fn = parse(".42e+2");
     expect(fn()).toBe(42);
   });
   it("can parse upper case scientific notation", function () {
-    varfn = parse(".42E2");
+    var fn = parse(".42E2");
     expect(fn()).toBe(42);
   });
   it("will not parse invalid scientific notation", function () {
@@ -45,11 +54,11 @@ describe("parse", function () {
   });
   it("can parse a string in single quotes", function () {
     var fn = parse("'abc'");
-    expect(fn()).toEqual(abc);
+    expect(fn()).toEqual("abc");
   });
   it("can parse a string in double quotes", function () {
     var fn = parse('"abc"');
-    expect(fn()).toEqual(abc);
+    expect(fn()).toEqual("abc");
   });
   it("will not parse a string with mismatching quotes", function () {
     expect(function () {
@@ -194,7 +203,7 @@ describe("parse", function () {
     expect(
       fn({
         aFunction: function (n) {
-          returnn;
+          return n;
         },
       })
     ).toBe(42);
@@ -228,7 +237,7 @@ describe("parse", function () {
         n: 3,
         argFn: _.constant(2),
         aFunction: function (a1, a2, a3) {
-          returna1 + a2 + a3;
+          return a1 + a2 + a3;
         },
       })
     ).toBe(42);
@@ -238,7 +247,7 @@ describe("parse", function () {
       anObject: {
         aMember: 42,
         aFunction: function () {
-          returnthis.aMember;
+          return this.aMember;
         },
       },
     };
@@ -250,7 +259,7 @@ describe("parse", function () {
       anObject: {
         aMember: 42,
         aFunction: function () {
-          returnthis.aMember;
+          return this.aMember;
         },
       },
     };
@@ -289,19 +298,19 @@ describe("parse", function () {
     expect(scope.anAttribute).toBe(42);
   });
   it("can assign a computed object property", function () {
-    var fn = parse((anObject["anAttribute"] = 42));
+    var fn = parse('anObject["anAttribute"] = 42');
     var scope = { anObject: {} };
     fn(scope);
     expect(scope.anObject.anAttribute).toBe(42);
   });
   it("can assign a non-computed object property", function () {
-    var fn = parse((anObject.anAttribute = 42));
+    var fn = parse("anObject.anAttribute = 42");
     var scope = { anObject: {} };
     fn(scope);
     expect(scope.anObject.anAttribute).toBe(42);
   });
   it("can assign a nested object property", function () {
-    var fn = parse((anArray[0].anAttribute = 42));
+    var fn = parse("anArray[0].anAttribute = 42");
     var scope = { anArray: [{}] };
     fn(scope);
     expect(scope.anArray[0].anAttribute).toBe(42);
@@ -326,7 +335,7 @@ describe("parse", function () {
   });
   it("does not allow calling __defineGetter__", function () {
     expect(function () {
-      varfn = parse('obj.__defineGetter__("evil", fn)');
+      var fn = parse('obj.__defineGetter__("evil", fn)');
       fn({ obj: {}, fn: function () {} });
     }).toThrow();
   });
@@ -355,7 +364,7 @@ describe("parse", function () {
     }).toThrow();
   });
   it("does not allow accessing window as non-computed property", function () {
-    varfn = parse("anObject.wnd");
+    var fn = parse("anObject.wnd");
     expect(function () {
       fn({ anObject: { wnd: window } });
     }).toThrow();
@@ -385,7 +394,7 @@ describe("parse", function () {
     }).toThrow();
   });
   it("does not allow referencing window", function () {
-    varfn = parse("wnd");
+    var fn = parse("wnd");
     expect(function () {
       fn({ wnd: window });
     }).toThrow();
@@ -559,6 +568,68 @@ describe("parse", function () {
   it("returns the value of the last statement", function () {
     expect(parse("a = 1; b = 2; a + b")({})).toBe(3);
   });
+  it("can parse filter expressions", function () {
+    parse = createInjector([
+      "ng",
+      function ($filterProvider) {
+        $filterProvider.register("upcase", function () {
+          return function (str) {
+            return str.toUpperCase();
+          };
+        });
+      },
+    ]).get("$parse");
+    var fn = parse("aString | upcase");
+    expect(fn({ aString: "Hello" })).toEqual("HELLO");
+  });
+  it("can parse filter chain expressions", function () {
+    parse = createInjector([
+      "ng",
+      function ($filterProvider) {
+        $filterProvider.register("upcase", function () {
+          return function (s) {
+            return s.toUpperCase();
+          };
+        });
+        $filterProvider.register("exclamate", function () {
+          return function (s) {
+            return s + "!";
+          };
+        });
+      },
+    ]).get("$parse");
+    var fn = parse('"hello" | upcase | exclamate');
+    expect(fn()).toEqual("HELLO!");
+  });
+  it("can pass an additional argument to filters", function () {
+    parse = createInjector([
+      "ng",
+      function ($filterProvider) {
+        $filterProvider.register("repeat", function () {
+          return function (s, times) {
+            return _.repeat(s, times);
+          };
+        });
+      },
+    ]).get("$parse");
+    var fn = parse('"hello" | repeat:3');
+    expect(fn()).toEqual("hellohellohello");
+  });
+  it("can pass several additional arguments to filters", function () {
+    parse = createInjector([
+      "ng",
+      function ($filterProvider) {
+        $filterProvider.register("surround", function () {
+          return function (s, left, right) {
+            return left + s + right;
+          };
+        });
+      },
+    ]).get("$parse");
+    var fn = parse('"hello" | surround:"*":"!"');
+    expect(fn()).toEqual("*hello!");
+  });
+
   it("returns the function itself when given one", function () {
     var fn = function () {};
     expect(parse(fn)).toBe(fn);
@@ -603,7 +674,7 @@ describe("parse", function () {
     expect(fn.constant).toBe(true);
   });
   it("marks booleans constant", function () {
-    varfn = parse("true");
+    var fn = parse("true");
     expect(fn.constant).toBe(true);
   });
   it("marks identifiers non-constant", function () {
@@ -639,9 +710,14 @@ describe("parse", function () {
     expect(parse("aFunction()").constant).toBe(false);
   });
   it("marks filters constant if arguments are", function () {
-    register(aFilter, function () {
-      return _.identity;
-    });
+    parse = createInjector([
+      "ng",
+      function ($filterProvider) {
+        $filterProvider.register("aFilter", function () {
+          return _.identity;
+        });
+      },
+    ]).get("$parse");
     expect(parse("[1, 2, 3] | aFilter").constant).toBe(true);
     expect(parse("[1, 2, a] | aFilter").constant).toBe(false);
     expect(parse("[1, 2, 3] | aFilter: 42").constant).toBe(true);

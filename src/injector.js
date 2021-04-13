@@ -1,8 +1,8 @@
 /* jshint globalstrict: true */
-/* global angular: false */
+/* global angular: false , HashMap: false*/
 "use strict";
-const { get } = require("jquery");
 var _ = require("lodash");
+var HashMap = require("./apis");
 var FN_ARGS = /^function\s*[^\(]*\(\s*([^\)]*)\)/m;
 var FN_ARG = /^\s*(_?)(\S+?)\1\s*$/;
 var STRIP_COMMENTS = /(\/\/.*$)|(\/\*.*?\*\/)/gm;
@@ -10,20 +10,36 @@ var INSTANTIATING = {};
 
 function createInjector(modulesToLoad, strictDi) {
   var providerCache = {};
-  var providerInjector = createInternalInjector(providerCache, function () {
-    throw "Unknown provider:" + path.join("<-");
-  });
+  var providerInjector = (providerCache.$injector = createInternalInjector(
+    providerCache,
+    function () {
+      throw "Unknown provider:" + path.join("<-");
+    }
+  ));
   var instanceCache = {};
-  var instanceInjector = createInternalInjector(instanceCache, function (name) {
-    var provider = providerInjector.get(name + 'Provider');
-    return instanceInjector.invoke(provider.$get, provider);
-  });
+  var instanceInjector = (instanceCache.$injector = createInternalInjector(
+    instanceCache,
+    function (name) {
+      var provider = providerInjector.get(name + "Provider");
+      return instanceInjector.invoke(provider.$get, provider);
+    }
+  ));
 
-  var loadedModules = {};
   var path = [];
   strictDi = strictDi === true;
+  var loadedModules = new HashMap();
 
-  var $provide = {
+  function enforceReturnValue(factoryFn) {
+    return function () {
+      var value = instanceInjector.invoke(factoryFn);
+      if (_.isUndefined(value)) {
+        throw "factory must return a value";
+      }
+      return value;
+    };
+  }
+
+  providerCache.$provide = {
     constant: function (key, value) {
       if (key === "hasOwnProperty") {
         throw "hasOwnProperty is not a valid constant name!";
@@ -36,6 +52,28 @@ function createInjector(modulesToLoad, strictDi) {
         provider = providerInjector.instantiate(provider);
       }
       providerCache[key + "Provider"] = provider;
+    },
+    factory: function (key, factoryFn, enforce) {
+      this.provider(key, {
+        $get: enforce === false ? factoryFn : enforceReturnValue(factoryFn),
+      });
+    },
+    value: function (key, value) {
+      this.factory(key, _.constant(value), false);
+    },
+    service: function (key, Constructor) {
+      this.factory(key, function () {
+        return instanceInjector.instantiate(Constructor);
+      });
+    },
+    decorator: function (serviceName, decoratorFn) {
+      var provider = providerInjector.get(serviceName + "Provider");
+      var original$get = provider.$get;
+      provider.$get = function () {
+        var instance = instanceInjector.invoke(original$get, provider); // Modifications will be done here
+        instanceInjector.invoke(decoratorFn,null,{$delegate: instance});
+        return instance;
+      };
     },
   };
   function createInternalInjector(cache, factoryFn) {
@@ -63,9 +101,9 @@ function createInjector(modulesToLoad, strictDi) {
     function invoke(fn, self, locals) {
       var args = _.map(annotate(fn), function (token) {
         if (_.isString(token)) {
-          return locals && locals.hasOwnProperty(token)
+          return locals && (locals.hasOwnProperty(token)
             ? locals[token]
-            : getService(token);
+            : getService(token));
         } else {
           throw "Incorrect injection token! Expected a string, got" + token;
         }
@@ -84,8 +122,10 @@ function createInjector(modulesToLoad, strictDi) {
 
     return {
       has: function (name) {
-        return cache.hasOwnProperty(name) ||
-          providerCache.hasOwnProperty(name + "Provider");
+        return (
+          cache.hasOwnProperty(name) ||
+          providerCache.hasOwnProperty(name + "Provider")
+        );
       },
       get: getService,
       annotate: annotate,
@@ -103,7 +143,7 @@ function createInjector(modulesToLoad, strictDi) {
       return [];
     } else {
       if (strictDi) {
-        throw "fn is not using explicit annotation and+cannot be invoked in strict mode";
+        throw "fn is not using explicit annotation and cannot be invoked in strict mode";
       }
       var source = fn.toString().replace(STRIP_COMMENTS, "");
       var argDeclaration = source.match(FN_ARGS);
@@ -112,18 +152,35 @@ function createInjector(modulesToLoad, strictDi) {
       });
     }
   }
+  function runInvokeQueue(queue) {
+    _.forEach(queue, function (invokeArgs) {
+      var service = providerInjector.get(invokeArgs[0]);
+      var method = invokeArgs[1];
+      var args = invokeArgs[2];
+      service[method].apply(service, args);
+    });
+  }
 
-  _.forEach(modulesToLoad, function loadModule(moduleName) {
-    if (!loadedModules.hasOwnProperty(moduleName)) {
-      loadedModules[moduleName] = true;
-      var module = angular.module(moduleName);
-      _.forEach(module.requires, loadModule);
-      _.forEach(module._invokeQueue, function (invokeArgs) {
-        var method = invokeArgs[0];
-        var args = invokeArgs[1];
-        $provide[method].apply($provide, args);
-      });
+  var runBlocks = [];
+  _.forEach(modulesToLoad, function loadModule(module) {
+    if (!loadedModules.get(module)) {
+      loadedModules.put(module, true);
+      if (_.isString(module)) {
+        if (!loadedModules.hasOwnProperty(module)) {
+          loadedModules[module] = true;
+          module = angular.module(module);
+          _.forEach(module.requires, loadModule);
+          runInvokeQueue(module._invokeQueue);
+          runInvokeQueue(module._configBlocks);
+          runBlocks = runBlocks.concat(module._runBlocks);
+        }
+      } else if (_.isFunction(module) || _.isArray(module)) {
+        runBlocks.push(providerInjector.invoke(module));
+      }
     }
+  });
+  _.forEach(_.compact(runBlocks), function (runBlock) {
+    instanceInjector.invoke(runBlock);
   });
   return instanceInjector;
 }

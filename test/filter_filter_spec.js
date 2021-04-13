@@ -1,12 +1,24 @@
+/* jshint globalstrict: true */ /* global publishExternalAPI: false, createInjector: false */
+"use strict";
+
+var publishExternalAPI = require("../src/angular_public");
+var createInjector = require("../src/injector");
+
 describe("filter filter", function () {
+  var parse;
+  beforeEach(function () {
+    publishExternalAPI();
+    parse =createInjector(['ng']).get('$parse');
+  });
   it("is available", function () {
-    expect(filter("filter")).toBeDefined();
+    var injector = createInjector(["ng"]);
+    expect(injector.has("filterFilter")).toBe(true);
   });
   it("can filter an array with a predicate function", function () {
     var fn = parse("[1, 2, 3, 4] | filter: isOdd");
     var scope = {
       isOdd: function (n) {
-        returnn % 2 !== 0;
+        return n % 2 !== 0;
       },
     };
     expect(fn(scope)).toEqual([1, 3]);
@@ -155,7 +167,7 @@ describe("filter filter", function () {
   });
   it("allows negation when filtering with an object", function () {
     var fn = parse(
-      'arr it(ignores undefined values in expectation object,function() {varfn =parse(arr | filter:{name: thisIsUndefined});expect(fn({arr:[{name:Joe,role:admin},{name:Jane,role:moderator}]})).toEqual([{name:Joe,role:admin},{name:Jane,role:moderator}]);});| filter:{name: {first: "!o"}}'
+      'arr it(ignores undefined values in expectation object,function() {var fn =parse(arr | filter:{name: thisIsUndefined});expect(fn({arr:[{name:Joe,role:admin},{name:Jane,role:moderator}]})).toEqual([{name:Joe,role:admin},{name:Jane,role:moderator}]);});| filter:{name: {first: "!o"}}'
     );
     expect(
       fn({
@@ -288,7 +300,7 @@ describe("filter filter", function () {
       fn({
         arr: ["o", "oo", "ao", "aa"],
         myComparator: function (left, right) {
-          returnleft === right;
+          return left === right;
         },
       })
     ).toEqual([o]);
