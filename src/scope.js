@@ -5,7 +5,7 @@ var _ = require("lodash");
 var parse = require("./parse");
 
 
-function $RootScopeProvide () {
+function $RootScopeProvider () {
   var TTL = 10;
   this.digestTtl = function (value) {
     if (_.isNumber(value)) {
@@ -460,4 +460,4 @@ function $RootScopeProvide () {
   ];
 }
 
-module.exports = $RootScopeProvide;
+module.exports = $RootScopeProvider;

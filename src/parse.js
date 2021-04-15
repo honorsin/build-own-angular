@@ -1219,3 +1219,4 @@ function ensureSafeFunction(obj) {
 function ifDefined(value, defaultValue) {
   return typeof value === undefined ? defaultValue : value;
 }
+module.exports = $ParseProvider;

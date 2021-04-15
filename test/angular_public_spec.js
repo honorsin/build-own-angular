@@ -26,7 +26,12 @@ describe("angularPublic", function () {
   });
   it("sets up the $rootScope", function () {
     publishExternalAPI();
-    var injector = createInjector(['ng']);
-    expect(injector.has('$rootScope')).toBe(true);
+    var injector = createInjector(["ng"]);
+    expect(injector.has("$rootScope")).toBe(true);
+  });
+  it("sets up $q", function () {
+    publishExternalAPI();
+    varinjector = createInjector(['ng']);
+    expect(injector.has('$q')).toBe(true);
   });
 });

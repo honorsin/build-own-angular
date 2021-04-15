@@ -1,4 +1,8 @@
-/* global hashKey: false, HashMap: false */
+'use strict';
+
+var _ = require('lodash');
+var hashKey = require('../src/hash_map').hashKey;
+var HashMap = require('../src/hash_map').HashMap;
 describe("apis", function () {
   "use strict";
   describe("hashKey", function () {

@@ -1,13 +1,14 @@
 "use strict";
-var setupModuleLoader = require('./loader');
+var setupModuleLoader = require("./loader");
+var $QProvider  = require('./q')
 function publishExternalAPI() {
-
   setupModuleLoader(window);
 
-  var ngModule =angular.module('ng', []);
-  ngModule.provider('$filter', $FilterProvider);
-  ngModule.provider('$parse', $ParseProvider);
-  ngModule.provider('$rootScope', $RootScopeProvider);
+  var ngModule = window.angular.module("ng", []);
+  ngModule.provider('$filter', require('./filter'));
+  ngModule.provider('$parse', require('./parse'));
+  ngModule.provider('$rootScope', require('./scope'));
+  ngModule.provider("$q", $QProvider);
 }
 
 module.exports = publishExternalAPI;
