@@ -1,5 +1,4 @@
 "use strict";
-/* global publishExternalAPI: false, createInjector: false */
 
 var _ = require("lodash");
 var publishExternalAPI = require("../src/angular_public");
@@ -1881,12 +1880,6 @@ describe("Scope", function () {
     it("fires $destroy when destroyed", function () {
       var listener = jasmine.createSpy();
       scope.$on("$destroy", listener);
-      scope.$destroy();
-      expect(listener).toHaveBeenCalled();
-    });
-    it("fires $destroy on children destroyed", function () {
-      var listener = jasmine.createSpy();
-      child.$on("$destroy", listener);
       scope.$destroy();
       expect(listener).toHaveBeenCalled();
     });

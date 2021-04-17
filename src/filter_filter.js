@@ -18,7 +18,7 @@ function filterFilter() {
     } else {
       return array;
     }
-    return_.filter(array, predicateFn);
+    return _.filter(array, predicateFn);
   };
 }
 
@@ -96,3 +96,4 @@ function deepCompare(
     return comparator(actual, expected);
   }
 }
+module.exports = filterFilter;

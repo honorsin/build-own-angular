@@ -4,8 +4,7 @@
 var _ = require("lodash");
 var parse = require("./parse");
 
-
-function $RootScopeProvider () {
+function $RootScopeProvider() {
   var TTL = 10;
   this.digestTtl = function (value) {
     if (_.isNumber(value)) {
@@ -23,8 +22,10 @@ function $RootScopeProvider () {
           return false;
         }
         var length = obj.length;
-        return length === 0 ||
-            (_.isNumber(length) && length > 0 && (length - 1) in obj);
+        return (
+          length === 0 ||
+          (_.isNumber(length) && length > 0 && length - 1 in obj)
+        );
       }
 
       function Scope() {
@@ -436,8 +437,6 @@ function $RootScopeProvider () {
         return event;
       };
       Scope.prototype.$$fireEventOnScope = function (eventName, listenerArgs) {
-        var event = { name: eventName, targetScope: this };
-        var listenerArgs = [event].concat(additionalArgs);
         var listeners = this.$$listeners[eventName] || [];
         var i = 0;
         while (i < listeners.length) {
@@ -452,7 +451,6 @@ function $RootScopeProvider () {
             i++;
           }
         }
-        return event;
       };
       var $rootScope = new Scope();
       return $rootScope;

@@ -1095,7 +1095,7 @@ function oneTimeLiteralWatchDelegate(scope, listenerFn, valueEq, watchFn) {
     },
     valueEq
   );
-  returnunwatch;
+  return unwatch;
 }
 function constantWatchDelegate(scope, listenerFn, valueEq, watchFn) {
   var unwatch = scope.$watch(

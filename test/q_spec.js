@@ -1,16 +1,15 @@
-/* jshint globalstrict: true */ /* global publishExternalAPI: false, createInjector: false */
 "use strict";
 
 var _ = require("lodash");
 var publishExternalAPI = require("../src/angular_public");
 var createInjector = require("../src/injector");
 describe("$q", function () {
-  var$q, $$q, $rootScope;
+  var $q, $$q, $rootScope;
   beforeEach(function () {
     publishExternalAPI();
     var injector = createInjector(["ng"]);
     $q = injector.get("$q");
-    $$q = injector.get($$q);
+    $$q = injector.get('$$q');
     $rootScope = injector.get("$rootScope");
   });
   it("can create a Deferred", function () {
@@ -636,7 +635,7 @@ describe("ES6 style", function () {
   });
 });
 
-describe($$q, function () {
+describe('$$q', function () {
   beforeEach(function () {
     jasmine.clock().install();
   });
@@ -663,7 +662,7 @@ describe($$q, function () {
     var d = $$q.defer();
     d.promise.then(_.noop);
     d.resolve('ok');
-    varwatchSpy = jasmine.createSpy();
+    var watchSpy = jasmine.createSpy();
     $rootScope.$watch(watchSpy);
     jasmine.clock().tick(1);
     expect(watchSpy).not.toHaveBeenCalled();

@@ -1,5 +1,3 @@
-/* jshint globalstrict: true */ /* global parse: false */
-/* global publishExternalAPI: false, createInjector: false */
 "use strict";
 var _ = require("lodash");
 var publishExternalAPI = require("../src/angular_public");
@@ -755,14 +753,14 @@ describe("parse", function () {
     expect(parse("a ? b : c").constant).toBe(false);
   });
   it("allows calling assign on identifier expressions", function () {
-    var fn = parse(anAttribute);
+    var fn = parse('anAttribute');
     expect(fn.assign).toBeDefined();
     var scope = {};
     fn.assign(scope, 42);
     expect(scope.anAttribute).toBe(42);
   });
   it("allows calling assign on member expressions", function () {
-    var fn = parse(anObject.anAttribute);
+    var fn = parse('anObject.anAttribute');
     expect(fn.assign).toBeDefined();
     var scope = {};
     fn.assign(scope, 42);

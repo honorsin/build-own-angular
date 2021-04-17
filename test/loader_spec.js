@@ -1,5 +1,3 @@
-/* jshint globalstrict: true */
-/* global setupModuleLoader: false */
 "use strict";
 var setupModuleLoader = require("../src/loader");
 

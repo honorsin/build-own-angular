@@ -1,6 +1,5 @@
 "use strict";
 var setupModuleLoader = require("./loader");
-var $QProvider  = require('./q')
 function publishExternalAPI() {
   setupModuleLoader(window);
 
@@ -8,8 +7,8 @@ function publishExternalAPI() {
   ngModule.provider('$filter', require('./filter'));
   ngModule.provider('$parse', require('./parse'));
   ngModule.provider('$rootScope', require('./scope'));
-  ngModule.provider("$q", $QProvider);
-  ngModule.provider('$$q', $$QProvider);
+  ngModule.provider('$q', require('./q').$QProvider);
+  ngModule.provider('$$q', require('./q').$$QProvider);
 }
 
 module.exports = publishExternalAPI;

@@ -1,5 +1,3 @@
-/* jshint globalstrict: true */
-/* global angular: false , HashMap: false*/
 "use strict";
 var _ = require("lodash");
 var HashMap = require('./hash_map').HashMap;
