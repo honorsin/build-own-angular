@@ -3,7 +3,7 @@ var _ = require("lodash");
 var HashMap = require('./hash_map').HashMap;
 var FN_ARGS = /^function\s*[^\(]*\(\s*([^\)]*)\)/m;
 var FN_ARG = /^\s*(_?)(\S+?)\1\s*$/;
-var STRIP_COMMENTS = /(\/\/.*$)|(\/\*.*?\*\/)/gm;
+var STRIP_COMMENTS = /(\/\/.*$)|(\/\*.*?\*\/)/mg;
 var INSTANTIATING = {};
 
 function createInjector(modulesToLoad, strictDi) {
@@ -24,7 +24,7 @@ function createInjector(modulesToLoad, strictDi) {
   ));
 
   var path = [];
-  strictDi = strictDi === true;
+  strictDi = (strictDi === true);
   var loadedModules = new HashMap();
 
   function enforceReturnValue(factoryFn) {
@@ -166,7 +166,7 @@ function createInjector(modulesToLoad, strictDi) {
       if (_.isString(module)) {
         if (!loadedModules.hasOwnProperty(module)) {
           loadedModules[module] = true;
-          module = angular.module(module);
+          module = window.angular.module(module);
           _.forEach(module.requires, loadModule);
           runInvokeQueue(module._invokeQueue);
           runInvokeQueue(module._configBlocks);

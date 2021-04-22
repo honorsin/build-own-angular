@@ -4,11 +4,15 @@ function publishExternalAPI() {
   setupModuleLoader(window);
 
   var ngModule = window.angular.module("ng", []);
-  ngModule.provider('$filter', require('./filter'));
-  ngModule.provider('$parse', require('./parse'));
-  ngModule.provider('$rootScope', require('./scope'));
-  ngModule.provider('$q', require('./q').$QProvider);
-  ngModule.provider('$$q', require('./q').$$QProvider);
+  ngModule.provider("$filter", require("./filter"));
+  ngModule.provider("$parse", require("./parse"));
+  ngModule.provider("$rootScope", require("./scope"));
+  ngModule.provider("$q", require("./q").$QProvider);
+  ngModule.provider("$$q", require("./q").$$QProvider);
+  ngModule.provider('$httpBackend', $HttpBackendProvider);
+  ngModule.provider('$http', $HttpProvider);
+  ngModule.provider('$httpParamSerializer', $HttpParamSerializerProvider);
+  ngModule.provider('$httpParamSerializerJQLike',$HttpParamSerializerJQLikeProvider);
 }
 
 module.exports = publishExternalAPI;
