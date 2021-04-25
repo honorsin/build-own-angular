@@ -550,7 +550,7 @@ describe("parse", function () {
         b: 43,
         c: 42,
       })
-    ).toEqual(c);
+    ).toEqual('c');
   });
   it("parses parentheses altering precedence order", function () {
     expect(parse("21 * (3 - 1)")()).toBe(42);
@@ -676,7 +676,7 @@ describe("parse", function () {
     expect(fn.constant).toBe(true);
   });
   it("marks identifiers non-constant", function () {
-    var fn = parse(a);
+    var fn = parse('a');
     expect(fn.constant).toBe(false);
   });
   it("marks arrays constant when elements are constant", function () {

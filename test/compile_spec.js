@@ -81,7 +81,7 @@ describe("$compile", function () {
       };
     });
     injector.invoke(function ($compile) {
-      varel = $("<my-directive></my-directive><my-directive></my-directive>");
+      var el = $("<my-directive></my-directive><my-directive></my-directive>");
       $compile(el);
       expect(el.eq(0).data("hasCompiled")).toBe(1);
       expect(el.eq(1).data("hasCompiled")).toBe(2);
@@ -97,7 +97,7 @@ describe("$compile", function () {
       };
     });
     injector.invoke(function ($compile) {
-      varel = $("<div><my-directive></my-directive></div>");
+      var el = $("<div><my-directive></my-directive></div>");
       $compile(el);
       expect(el.data("hasCompiled")).toBeUndefined();
       expect(el.find("> my-directive").data("hasCompiled")).toBe(1);
@@ -152,7 +152,7 @@ describe("$compile", function () {
       };
     });
     injector.invoke(function ($compile) {
-      varel = $("<div my-directive></div>");
+      var el = $("<div my-directive></div>");
       $compile(el);
       expect(el.data("hasCompiled")).toBe(true);
     });
@@ -166,7 +166,7 @@ describe("$compile", function () {
       };
     });
     injector.invoke(function ($compile) {
-      varel = $("<div x:my-directive></div>");
+      var el = $("<div x:my-directive></div>");
       $compile(el);
       expect(el.data("hasCompiled")).toBe(true);
     });
@@ -190,7 +190,7 @@ describe("$compile", function () {
       },
     });
     injector.invoke(function ($compile) {
-      varel = $("<div my-directive my-second-directive></div>");
+      var el = $("<div my-directive my-second-directive></div>");
       $compile(el);
       expect(el.data("hasCompiled")).toBe(true);
       expect(el.data("secondCompiled")).toBe(true);
@@ -214,7 +214,7 @@ describe("$compile", function () {
       },
     });
     injector.invoke(function ($compile) {
-      varel = $("<my-directive my-second-directive></my-directive>");
+      var el = $("<my-directive my-second-directive></my-directive>");
       $compile(el);
       expect(el.data("hasCompiled")).toBe(true);
       expect(el.data("secondCompiled")).toBe(true);
@@ -229,7 +229,7 @@ describe("$compile", function () {
       };
     });
     injector.invoke(function ($compile) {
-      varel = $("<div ng-attr-my-directive></div>");
+      var el = $("<div ng-attr-my-directive></div>");
       $compile(el);
       expect(el.data("hasCompiled")).toBe(true);
     });
@@ -243,7 +243,7 @@ describe("$compile", function () {
       };
     });
     injector.invoke(function ($compile) {
-      varel = $("<div data:ng-attr-my-directive></div>");
+      var el = $("<div data:ng-attr-my-directive></div>");
       $compile(el);
       expect(el.data("hasCompiled")).toBe(true);
     });
@@ -257,7 +257,7 @@ describe("$compile", function () {
       };
     });
     injector.invoke(function ($compile) {
-      varel = $('<div class="my-directive"></div>');
+      var el = $('<div class="my-directive"></div>');
       $compile(el);
       expect(el.data("hasCompiled")).toBe(true);
     });
@@ -280,7 +280,7 @@ describe("$compile", function () {
       },
     });
     injector.invoke(function ($compile) {
-      varel = $('<div class="my-directive my-second-directive"></div>');
+      var el = $('<div class="my-directive my-second-directive"></div>');
       $compile(el);
       expect(el.data("hasCompiled")).toBe(true);
       expect(el.data("secondCompiled")).toBe(true);
@@ -295,7 +295,7 @@ describe("$compile", function () {
       };
     });
     injector.invoke(function ($compile) {
-      varel = $('<div class="x-my-directive"></div>');
+      var el = $('<div class="x-my-directive"></div>');
       $compile(el);
       expect(el.data("hasCompiled")).toBe(true);
     });
@@ -310,274 +310,610 @@ describe("$compile", function () {
       };
     });
     injector.invoke(function ($compile) {
-      varel = $("<!-- directive: my-directive -->");
+      var el = $("<!-- directive: my-directive -->");
       $compile(el);
       expect(hasCompiled).toBe(true);
     });
   });
-});
-_.forEach(
-  {
-    E: { element: true, attribute: false, class: false, comment: false },
-    A: { element: false, attribute: true, class: false, comment: false },
-    C: { element: false, attribute: false, class: true, comment: false },
-    M: { element: false, attribute: false, class: false, comment: true },
-    EA: { element: true, attribute: true, class: false, comment: false },
-    AC: { element: false, attribute: true, class: true, comment: false },
-    EAM: { element: true, attribute: true, class: false, comment: true },
-    EACM: { element: true, attribute: true, class: true, comment: true },
-  },
-  function (expected, restrict) {
-    describe("restricted to" + restrict, function () {
-      _.forEach(
-        {
-          element: "<my-directive></my-directive>",
-          attribute: "<div my-directive></div>",
-          class: '<div class="my-directive"></div>',
-          comment: "<!-- directive: my-directive -->",
-        },
-        function (dom, type) {
-          it(
-            (expected[type] ? "matches" : "does not match") + "on" + type,
-            function () {
-              var hasCompiled = false;
-              var injector = makeInjectorWithDirectives(
-                myDirective,
-                function () {
-                  return {
-                    restrict: restrict,
-                    compile: function (element) {
-                      hasCompiled = true;
-                    },
-                  };
-                }
-              );
-              injector.invoke(function ($compile) {
-                varel = $(dom);
-                $compile(el);
-                expect(hasCompiled).toBe(expected[type]);
-              });
-            }
-          );
-        }
-      );
-      it("applies to attributes when no restrict given", function () {
-        var hasCompiled = false;
-        var injector = makeInjectorWithDirectives("myDirective", function () {
-          return {
-            compile: function (element) {
-              hasCompiled = true;
-            },
-          };
+  _.forEach(
+    {
+      E: { element: true, attribute: false, class: false, comment: false },
+      A: { element: false, attribute: true, class: false, comment: false },
+      C: { element: false, attribute: false, class: true, comment: false },
+      M: { element: false, attribute: false, class: false, comment: true },
+      EA: { element: true, attribute: true, class: false, comment: false },
+      AC: { element: false, attribute: true, class: true, comment: false },
+      EAM: { element: true, attribute: true, class: false, comment: true },
+      EACM: { element: true, attribute: true, class: true, comment: true },
+    },
+    function (expected, restrict) {
+      describe("restricted to" + restrict, function () {
+        _.forEach(
+          {
+            element: "<my-directive></my-directive>",
+            attribute: "<div my-directive></div>",
+            class: '<div class="my-directive"></div>',
+            comment: "<!-- directive: my-directive -->",
+          },
+          function (dom, type) {
+            it(
+              (expected[type] ? "matches" : "does not match") + "on" + type,
+              function () {
+                var hasCompiled = false;
+                var injector = makeInjectorWithDirectives(
+                  myDirective,
+                  function () {
+                    return {
+                      restrict: restrict,
+                      compile: function (element) {
+                        hasCompiled = true;
+                      },
+                    };
+                  }
+                );
+                injector.invoke(function ($compile) {
+                  var el = $(dom);
+                  $compile(el);
+                  expect(hasCompiled).toBe(expected[type]);
+                });
+              }
+            );
+          }
+        );
+        it("applies to attributes when no restrict given", function () {
+          var hasCompiled = false;
+          var injector = makeInjectorWithDirectives("myDirective", function () {
+            return {
+              compile: function (element) {
+                hasCompiled = true;
+              },
+            };
+          });
+          injector.invoke(function ($compile) {
+            var el = $("<div my-directive></div>");
+            $compile(el);
+            expect(hasCompiled).toBe(true);
+          });
         });
-        injector.invoke(function ($compile) {
-          var el = $("<div my-directive></div>");
-          $compile(el);
-          expect(hasCompiled).toBe(true);
-        });
-      });
 
-      it("applies to elements when no restrict given", function () {
-        var hasCompiled = false;
-        var injector = makeInjectorWithDirectives("myDirective", function () {
-          return {
-            compile: function (element) {
-              hasCompiled = true;
+        it("applies to elements when no restrict given", function () {
+          var hasCompiled = false;
+          var injector = makeInjectorWithDirectives("myDirective", function () {
+            return {
+              compile: function (element) {
+                hasCompiled = true;
+              },
+            };
+          });
+          injector.invoke(function ($compile) {
+            var el = $("<my-directive></my-directive>");
+            $compile(el);
+            expect(hasCompiled).toBe(true);
+          });
+        });
+        it("applies in priority order", function () {
+          var compilations = [];
+          var injector = makeInjectorWithDirectives({
+            lowerDirective: function () {
+              return {
+                priority: 1,
+                compile: function (element) {
+                  compilations.push("lower");
+                },
+              };
             },
-          };
+            higherDirective: function () {
+              return {
+                priority: 2,
+                compile: function (element) {
+                  compilations.push("higher");
+                },
+              };
+            },
+          });
+          injector.invoke(function ($compile) {
+            var el = $("<div lower-directive higher-directive></div>");
+            $compile(el);
+            expect(compilations).toEqual(["higher", "lower"]);
+          });
         });
-        injector.invoke(function ($compile) {
-          var el = $("<my-directive></my-directive>");
-          $compile(el);
-          expect(hasCompiled).toBe(true);
+        it("applies in name order when priorities are the same", function () {
+          var compilations = [];
+          var injector = makeInjectorWithDirectives({
+            firstDirective: function () {
+              return {
+                priority: 1,
+                compile: function (element) {
+                  compilations.push("first");
+                },
+              };
+            },
+            secondDirective: function () {
+              return {
+                priority: 1,
+                compile: function (element) {
+                  compilations.push("second");
+                },
+              };
+            },
+          });
+          injector.invoke(function ($compile) {
+            var el = $("<div second-directive first-directive></div>");
+            $compile(el);
+            expect(compilations).toEqual(["first", "second"]);
+          });
         });
-      });
-      it("applies in priority order", function () {
-        var compilations = [];
-        var injector = makeInjectorWithDirectives({
-          lowerDirective: function () {
-            return {
-              priority: 1,
-              compile: function (element) {
-                compilations.push("lower");
-              },
-            };
-          },
-          higherDirective: function () {
-            return {
-              priority: 2,
-              compile: function (element) {
-                compilations.push("higher");
-              },
-            };
-          },
-        });
-        injector.invoke(function ($compile) {
-          varel = $("<div lower-directive higher-directive></div>");
-          $compile(el);
-          expect(compilations).toEqual(["higher", "lower"]);
-        });
-      });
-      it("applies in name order when priorities are the same", function () {
-        var compilations = [];
-        var injector = makeInjectorWithDirectives({
-          firstDirective: function () {
+
+        it("applies in registration order when names are the same", function () {
+          var compilations = [];
+          var myModule = window.angular.module("myModule", []);
+          myModule.directive(aDirective, function () {
             return {
               priority: 1,
               compile: function (element) {
                 compilations.push("first");
               },
             };
-          },
-          secondDirective: function () {
+          });
+          myModule.directive("aDirective", function () {
             return {
               priority: 1,
               compile: function (element) {
                 compilations.push("second");
               },
             };
-          },
+          });
+          var injector = createInjector(["ng", "myModule"]);
+          injector.invoke(function ($compile) {
+            var el = $("<div a-directive></div>");
+            $compile(el);
+            expect(compilations).toEqual(["first", "second"]);
+          });
         });
-        injector.invoke(function ($compile) {
-          var el = $("<div second-directive first-directive></div>");
-          $compile(el);
-          expect(compilations).toEqual(["first", "second"]);
+        it("uses default priority when one not given", function () {
+          var compilations = [];
+          var myModule = window.angular.module("myModule", []);
+          myModule.directive("firstDirective", function () {
+            return {
+              priority: 1,
+              compile: function (element) {
+                compilations.push("first");
+              },
+            };
+          });
+          myModule.directive("secondDirective", function () {
+            return {
+              compile: function (element) {
+                compilations.push("second");
+              },
+            };
+          });
+          var injector = createInjector(["ng", "myModule"]);
+          injector.invoke(function ($compile) {
+            var el = $("<div second-directive first-directive></div>");
+            $compile(el);
+            expect(compilations).toEqual(["first", "second"]);
+          });
+        });
+        it("stops compiling at a terminal directive", function () {
+          var compilations = [];
+          var myModule = window.angular.module("myModule", []);
+          myModule.directive(firstDirective, function () {
+            return {
+              priority: 1,
+              terminal: true,
+              compile: function (element) {
+                compilations.push("first");
+              },
+            };
+          });
+          myModule.directive(secondDirective, function () {
+            return {
+              priority: 0,
+              compile: function (element) {
+                compilations.push("second");
+              },
+            };
+          });
+          var injector = createInjector(["ng", "myModule"]);
+          injector.invoke(function ($compile) {
+            var el = $("<div first-directive second-directive></div>");
+            $compile(el);
+            expect(compilations).toEqual(["first"]);
+          });
+        });
+        it("still compiles directives with same priority after terminal", function () {
+          var compilations = [];
+          var myModule = window.angular.module("myModule", []);
+          myModule.directive("firstDirective", function () {
+            return {
+              priority: 1,
+              terminal: true,
+              compile: function (element) {
+                compilations.push("first");
+              },
+            };
+          });
+          myModule.directive("secondDirective", function () {
+            return {
+              priority: 1,
+              compile: function (element) {
+                compilations.push("second");
+              },
+            };
+          });
+          var injector = createInjector(["ng", "myModule"]);
+          injector.invoke(function ($compile) {
+            var el = $("<div first-directive second-directive></div>");
+            $compile(el);
+            expect(compilations).toEqual(["first", "second"]);
+          });
+        });
+        it("stops child compilation after a terminal directive", function () {
+          var compilations = [];
+          var myModule = window.angular.module("myModule", []);
+          myModule.directive("parentDirective", function () {
+            return {
+              terminal: true,
+              compile: function (element) {
+                compilations.push("parent");
+              },
+            };
+          });
+          myModule.directive("childDirective", function () {
+            return {
+              compile: function (element) {
+                compilations.push("child");
+              },
+            };
+          });
+          var injector = createInjector([ng, myModule]);
+          injector.invoke(function ($compile) {
+            var el = $(
+              "<div parent-directive><div child-directive></div></div>"
+            );
+            $compile(el);
+            expect(compilations).toEqual(["parent"]);
+          });
+        });
+        it("allows applying a directive to multiple elements", function () {
+          var compileEl = false;
+          var injector = makeInjectorWithDirectives("myDir", function () {
+            return {
+              multiElement: true,
+              compile: function (element) {
+                compileEl = element;
+              },
+            };
+          });
+          injector.invoke(function ($compile) {
+            var el = $(
+              "<div my-dir-start></div><span></span><div my-dir-end></div>"
+            );
+            $compile(el);
+            expect(compileEl.length).toBe(3);
+          });
         });
       });
+    }
+  );
 
-      it("applies in registration order when names are the same", function () {
-        var compilations = [];
-        var myModule = window.angular.module("myModule", []);
-        myModule.directive(aDirective, function () {
-          return {
-            priority: 1,
-            compile: function (element) {
-              compilations.push("first");
-            },
-          };
-        });
-        myModule.directive("aDirective", function () {
-          return {
-            priority: 1,
-            compile: function (element) {
-              compilations.push("second");
-            },
-          };
-        });
-        var injector = createInjector(["ng", "myModule"]);
-        injector.invoke(function ($compile) {
-          varel = $("<div a-directive></div>");
-          $compile(el);
-          expect(compilations).toEqual(["first", "second"]);
-        });
+  describe("attributes", function () {
+    function registerAndCompile(dirName, domString, callback) {
+      var givenAttrs;
+      var injector = makeInjectorWithDirectives(dirName, function () {
+        return {
+          restrict: "EACM",
+          compile: function (element, attrs) {
+            givenAttrs = attrs;
+          },
+        };
       });
-      it("uses default priority when one not given", function () {
-        var compilations = [];
-        var myModule = window.angular.module("myModule", []);
-        myModule.directive("firstDirective", function () {
-          return {
-            priority: 1,
-            compile: function (element) {
-              compilations.push("first");
-            },
-          };
-        });
-        myModule.directive("secondDirective", function () {
-          return {
-            compile: function (element) {
-              compilations.push("second");
-            },
-          };
-        });
-        var injector = createInjector(["ng", "myModule"]);
-        injector.invoke(function ($compile) {
-          var el = $("<div second-directive first-directive></div>");
-          $compile(el);
-          expect(compilations).toEqual(["first", "second"]);
-        });
+      injector.invoke(function ($compile, $rootScope) {
+        var el = $(domString);
+        $compile(el);
+        callback(el, givenAttrs, $rootScope);
       });
-      it("stops compiling at a terminal directive", function () {
-        var compilations = [];
-        var myModule = window.angular.module("myModule", []);
-        myModule.directive(firstDirective, function () {
-          return {
-            priority: 1,
-            terminal: true,
-            compile: function (element) {
-              compilations.push("first");
-            },
-          };
-        });
-        myModule.directive(secondDirective, function () {
-          return {
-            priority: 0,
-            compile: function (element) {
-              compilations.push("second");
-            },
-          };
-        });
-        var injector = createInjector(["ng", "myModule"]);
-        injector.invoke(function ($compile) {
-          varel = $("<div first-directive second-directive></div>");
-          $compile(el);
-          expect(compilations).toEqual(["first"]);
-        });
-      });
-      it("still compiles directives with same priority after terminal", function () {
-        var compilations = [];
-        var myModule = window.angular.module("myModule", []);
-        myModule.directive("firstDirective", function () {
-          return {
-            priority: 1,
-            terminal: true,
-            compile: function (element) {
-              compilations.push("first");
-            },
-          };
-        });
-        myModule.directive("secondDirective", function () {
-          return {
-            priority: 1,
-            compile: function (element) {
-              compilations.push("second");
-            },
-          };
-        });
-        var injector = createInjector(["ng", "myModule"]);
-        injector.invoke(function ($compile) {
-          varel = $("<div first-directive second-directive></div>");
-          $compile(el);
-          expect(compilations).toEqual(["first", "second"]);
-        });
-      });
-      it("stops child compilation after a terminal directive", function () {
-        var compilations = [];
-        var myModule = window.angular.module('myModule', []);
-        myModule.directive('parentDirective', function () {
-          return {
-            terminal: true,
-            compile: function (element) {
-              compilations.push('parent');
-            },
-          };
-        });
-        myModule.directive('childDirective', function () {
-          return {
-            compile: function (element) {
-              compilations.push('child');
-            },
-          };
-        });
-        var injector = createInjector([ng, myModule]);
-        injector.invoke(function ($compile) {
-          var el = $('<div parent-directive><div child-directive></div></div>'
-          );
-          $compile(el);
-          expect(compilations).toEqual(['parent']);
-        });
-      });
-      it('allows applying a directive to multiple elements',function() {var compileEl =false;var injector =makeInjectorWithDirectives('myDir',function() {return {multiElement:true,compile:function(element) {compileEl = element;}};});injector.invoke(function($compile) 
-      {var el =$('<div my-dir-start></div><span></span><div my-dir-end></div>');$compile(el);expect(compileEl.length).toBe(3);});});
+    }
+
+    it("passes the element attributes to the compile function", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive my-attr="1" my-other-attr="two"></my-directive>',
+        function (element, attrs) {
+          expect(attrs.myAttr).toEqual("1");
+          expect(attrs.myOtherAttr).toEqual("two");
+        }
+      );
     });
-  }
-);
+    it("trims attribute values", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive my-attr=" val "></my-directive>',
+        function (element, attrs) {
+          expect(attrs.myAttr).toEqual("val");
+        }
+      );
+    });
+    it("sets the value of boolean attributes to true", function () {
+      registerAndCompile(
+        "myDirective",
+        "<input my-directive disabled>",
+        function (element, attrs) {
+          expect(attrs.disabled).toBe(true);
+        }
+      );
+    });
+    it("does not set the value of custom boolean attributes to true", function () {
+      registerAndCompile(
+        "myDirective",
+        "<input my-directive whatever>",
+        function (element, attrs) {
+          expect(attrs.whatever).toEqual("");
+        }
+      );
+    });
+
+    it("overrides attributes with ng-attr- versions", function () {
+      registerAndCompile(
+        "myDirective",
+        '<input my-directive ng-attr-whatever="42" whatever="41">',
+        function (element, attrs) {
+          expect(attrs.whatever).toEqual("42");
+        }
+      );
+    });
+    it("allows setting attributes", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive attr="true"></my-directive>',
+        function (element, attrs) {
+          attrs.$set("attr", "false");
+          expect(attrs.attr).toEqual("false");
+        }
+      );
+    });
+    it("sets attributes to DOM", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive attr="true"></my-directive>',
+        function (element, attrs) {
+          attrs.$set("attr", "false");
+          expect(element.attr(attr)).toEqual("false");
+        }
+      );
+    });
+    it("does not set attributes to DOM when flag is false", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive attr="true"></my-directive>',
+        function (element, attrs) {
+          attrs.$set("attr", "false", false);
+          expect(element.attr(attr)).toEqual("true");
+        }
+      );
+    });
+    it("shares attributes between directives", function () {
+      var attrs1, attrs2;
+      var injector = makeInjectorWithDirectives({
+        myDir: function () {
+          return {
+            compile: function (element, attrs) {
+              attrs1 = attrs;
+            },
+          };
+        },
+        myOtherDir: function () {
+          return {
+            compile: function (element, attrs) {
+              attrs2 = attrs;
+            },
+          };
+        },
+      });
+      injector.invoke(function ($compile) {
+        var el = $("<div my-dir my-other-dir></div>");
+        $compile(el);
+        expect(attrs1).toBe(attrs2);
+      });
+    });
+    it("sets prop for boolean attributes", function () {
+      registerAndCompile(
+        "myDirective",
+        "<input my-directive>",
+        function (element, attrs) {
+          attrs.$set("disabled", true);
+          expect(element.prop("disabled")).toBe(true);
+        }
+      );
+    });
+    it("sets prop for boolean attributes even when not flushing", function () {
+      registerAndCompile(
+        "myDirective",
+        "<input my-directive>",
+        function (element, attrs) {
+          attrs.$set(disabled, true, false);
+          expect(element.prop(disabled)).toBe(true);
+        }
+      );
+    });
+    it("denormalizes attribute name when explicitly given", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive some-attribute="42"></my-directive>',
+        function (element, attrs) {
+          attrs.$set("someAttribute", 43, true, "some-attribute");
+          expect(element.attr("some-attribute")).toEqual("43");
+        }
+      );
+    });
+    it("denormalizes attribute by snake-casing", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive some-attribute="42"></my-directive>',
+        function (element, attrs) {
+          attrs.$set("someAttribute", 43);
+          expect(element.attr("some-attribute")).toEqual("43");
+        }
+      );
+    });
+    it("denormalizes attribute by using original attribute name", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive x-some-attribute="42"></my-directive>',
+        function (element, attrs) {
+          attrs.$set("someAttribute", "43");
+          expect(element.attr("x-some-attribute")).toEqual("43");
+        }
+      );
+    });
+    it("does not use ng-attr- prefix in denormalized names", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive ng-attr-some-attribute="42"></my-directive>',
+        function (element, attrs) {
+          attrs.$set("someAttribute", 43);
+          expect(element.attr("some-attribute")).toEqual("43");
+        }
+      );
+    });
+    it("uses new attribute name after once given", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive x-some-attribute="42"></my-directive>',
+        function (element, attrs) {
+          attrs.$set("someAttribute", 43, true, "some-attribute");
+          attrs.$set("someAttribute", 44);
+          expect(element.attr("some-attribute")).toEqual("44");
+          expect(element.attr("x-some-attribute")).toEqual("42");
+        }
+      );
+    });
+    it("calls observer immediately when attribute is $set", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive some-attribute="42"></my-directive>',
+        function (element, attrs) {
+          var gotValue;
+          attrs.$observe("someAttribute", function (value) {
+            gotValue = value;
+          });
+          attrs.$set("someAttribute", "43");
+          expect(gotValue).toEqual("43");
+        }
+      );
+    });
+    it("calls observer on next $digest after registration", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive some-attribute="42"></my-directive>',
+        function (element, attrs, $rootScope) {
+          var gotValue;
+          attrs.$observe("someAttribute", function (value) {
+            gotValue = value;
+          });
+          $rootScope.$digest();
+          expect(gotValue).toEqual("42");
+        }
+      );
+    });
+    it("lets observers be deregistered", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive some-attribute="42"></my-directive>',
+        function (element, attrs) {
+          var gotValue;
+          var remove = attrs.$observe(someAttribute, function (value) {
+            gotValue = value;
+          });
+          attrs.$set("someAttribute", "43");
+          expect(gotValue).toEqual("43");
+          remove();
+          attrs.$set("someAttribute", "44");
+          expect(gotValue).toEqual("43");
+        }
+      );
+    });
+    it("adds an attribute from a class directive", function () {
+      registerAndCompile(
+        "myDirective",
+        '<div class="my-directive"></div>',
+        function (element, attrs) {
+          expect(attrs.hasOwnProperty("myDirective")).toBe(true);
+        }
+      );
+    });
+    it("does not add attribute from class without a directive", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive class="some-class"></my-directive>',
+        function (element, attrs) {
+          expect(attrs.hasOwnProperty("someClass")).toBe(false);
+        }
+      );
+    });
+    it("supports values for class directive attributes", function () {
+      registerAndCompile(
+        "myDirective",
+        '<div class="my-directive: my attribute value"></div>',
+        function (element, attrs) {
+          expect(attrs.myDirective).toEqual("my attribute value");
+        }
+      );
+    });
+    it("terminates class directive attribute value at semicolon", function () {
+      registerAndCompile(
+        "myDirective",
+        '<div class="my-directive: my attribute value; some-other-class"></div>',
+        function (element, attrs) {
+          expect(attrs.myDirective).toEqual("my attribute value");
+        }
+      );
+    });
+    it("adds an attribute with a value from a comment directive", function () {
+      r;
+      egisterAndCompile(
+        "myDirective",
+        "<!-- directive: my-directive and the attribute value -->",
+        function (element, attrs) {
+          expect(attrs.hasOwnProperty("myDirective")).toBe(true);
+          expect(attrs.myDirective).toEqual("and the attribute value");
+        }
+      );
+    });
+    it("allows adding classes", function () {
+      registerAndCompile(
+        "myDirective",
+        "<my-directive></my-directive>",
+        function (element, attrs) {
+          attrs.$addClass("some-class");
+          expect(element.hasClass("some-class")).toBe(true);
+        }
+      );
+    });
+
+    it("allows removing classes", function () {
+      registerAndCompile(
+        "myDirective",
+        '<my-directive class="some-class"></my-directive>',
+        function (element, attrs) {
+          attrs.$removeClass("some-class");
+          expect(element.hasClass("some-class")).toBe(false);
+        }
+      );
+    });
+    it("allows updating classes", function () {
+      registerAndCompile(
+        'myDirective',
+        '<my-directive class="one three four"></my-directive>',
+        function (element, attrs) {
+          attrs.$updateClass('one two three','one three four');
+          expect(element.hasClass("one")).toBe(true);
+          expect(element.hasClass("two")).toBe(true);
+          expect(element.hasClass("three")).toBe(true);
+          expect(element.hasClass("four")).toBe(false);
+        }
+      );
+    });
+  });
+});

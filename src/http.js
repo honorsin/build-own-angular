@@ -125,7 +125,6 @@ function $HttpProvider() {
         },
       ],
       transformResponse: [defaultHttpResponseTransform],
-      paramSerializer: serializeParams,
       paramSerializer: "$httpParamSerializer",
     },
   });
