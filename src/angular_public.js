@@ -16,6 +16,7 @@ function publishExternalAPI() {
   ngModule.provider('$compile', require('./compile'));
   ngModule.provider('$controller', require('./controller').$ControllerProvider);
   ngModule.directive('ngController', ngControllerDirective);
+  ngModule.directive('ngTransclude', ngTranscludeDirective);
 }
 
 module.exports = publishExternalAPI;
