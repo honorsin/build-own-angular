@@ -15,6 +15,7 @@ function publishExternalAPI() {
   ngModule.provider('$httpParamSerializerJQLike', require('./http').$HttpParamSerializerJQLikeProvider);
   ngModule.provider('$compile', require('./compile'));
   ngModule.provider('$controller', require('./controller').$ControllerProvider);
+  ngModule.provider('$interpolate', $InterpolateProvider)
   ngModule.directive('ngController', ngControllerDirective);
   ngModule.directive('ngTransclude', ngTranscludeDirective);
 }
