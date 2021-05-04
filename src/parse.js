@@ -1058,7 +1058,7 @@ function $ParseProvider(expr) {
           if (parseFn.constant) {
             parseFn.$$watchDelegate = constantWatchDelegate;
           } else if (oneTime) {
-            parseFn.$$watchDelegate = parseFmn.literal
+            parseFn.$$watchDelegate = parseFn.literal
               ? oneTimeLiteralWatchDelegate
               : oneTimeWatchDelegate;
           } else if (parseFn.inputs) {

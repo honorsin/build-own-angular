@@ -2,6 +2,7 @@
 
 var _ = require("lodash");
 var $ = require("jquery");
+var sinon = require('sinon');
 var publishExternalAPI = require("../src/angular_public");
 var createInjector = require("../src/injector");
 
@@ -1288,7 +1289,7 @@ describe("$compile", function () {
         };
       });
       injector.invoke(function ($compile, $rootScope) {
-        var ell = $("<div my-directive></div>");
+        var el = $("<div my-directive></div>");
         $compile(el)($rootScope);
         expect(el.hasClass("ng-isolate-scope")).toBe(true);
         expect(el.hasClass("ng-scope")).toBe(false);
@@ -1324,7 +1325,7 @@ describe("$compile", function () {
         };
       });
       injector.invoke(function ($compile, $rootScope) {
-        var ell = $('<div my-directive an-attr="42"></div>');
+        var el = $('<div my-directive an-attr="42"></div>');
         $compile(el)($rootScope);
         expect(givenScope.anAttr).toEqual("42");
       });
@@ -1423,7 +1424,7 @@ describe("$compile", function () {
     });
     it("allows assigning to isolated scope expressions", function () {
       var givenScope;
-      var injector = makeInjectorWithDirectives(myDirective, function () {
+      var injector = makeInjectorWithDirectives('myDirective', function () {
         return {
           scope: { myAttr: "=" },
           link: function (scope) {
@@ -1432,7 +1433,7 @@ describe("$compile", function () {
         };
       });
       injector.invoke(function ($compile, $rootScope) {
-        var ell = $('<div my-directive my-attr="parentAttr"></div>');
+        var el = $('<div my-directive my-attr="parentAttr"></div>');
         $compile(el)($rootScope);
         givenScope.myAttr = 42;
         $rootScope.$digest();
@@ -1476,7 +1477,7 @@ describe("$compile", function () {
         $rootScope.parentFunction = function () {
           return [1, 2, 3];
         };
-        var ell = $('<div my-directive my-attr="parentFunction()"></div>');
+        var el = $('<div my-directive my-attr="parentFunction()"></div>');
         $compile(el)($rootScope);
         expect(function () {
           $rootScope.$digest();
@@ -1485,7 +1486,7 @@ describe("$compile", function () {
     });
     it("can watch isolated scope expressions as collections", function () {
       var givenScope;
-      var injector = makeInjectorWithDirectives(myDirective, function () {
+      var injector = makeInjectorWithDirectives('myDirective', function () {
         return {
           scope: { myAttr: "=*" },
           link: function (scope) {
@@ -1842,7 +1843,7 @@ describe("$compile", function () {
       expect(actualController.aDep).toBe(42);
     });
     it("can bind semi-constructed controller to scope", function () {
-      var injector = createInjector([ng]);
+      var injector = createInjector(['ng']);
       var $controller = injector.get($controller);
       function MyController() {}
       var scope = {};
@@ -2317,7 +2318,19 @@ describe("$compile", function () {
       });
     });
   });
+
   describe("templateUrl", function () {
+    var xhr, requests;
+    beforeEach(function () {
+      xhr = sinon.useFakeXMLHttpRequest();
+      requests = [];
+      xhr.onCreate = function (req) {
+        requests.push(req);
+      };
+    });
+    afterEach(function () {
+      xhr.restore();
+    });
     it("defers remaining directive compilation", function () {
       var otherCompileSpy = jasmine.createSpy();
       var injector = makeInjectorWithDirectives({
@@ -2362,19 +2375,6 @@ describe("$compile", function () {
         expect(el.is(":empty")).toBe(true);
       });
     });
-  });
-  describe("templateUrl", function () {
-    var xhr, requests;
-    beforeEach(function () {
-      xhr = sinon.useFakeXMLHttpRequest();
-      requests = [];
-      xhr.onCreate = function (req) {
-        requests.push(req);
-      };
-    });
-    afterEach(function () {
-      xhr.restore();
-    });
     it("fetches the template", function () {
       var injector = makeInjectorWithDirectives({
         myDirective: function () {
@@ -2417,7 +2417,7 @@ describe("$compile", function () {
         },
       });
       injector.invoke(function ($compile, $rootScope) {
-        varel = $("<div my-directive></div>");
+        var el = $("<div my-directive></div>");
         $compile(el);
         $rootScope.$apply();
         requests[0].respond(200, {}, '<div class="from-template"></div>');
@@ -2680,6 +2680,81 @@ describe("$compile", function () {
 
         expect(myDirectiveControllerInstantiated).toBe(true);
         expect(myOtherDirectiveControllerInstantiated).toBe(true);
+      });
+    });
+    describe("with transclusion", function () {
+      it("works when template arrives first", function () {
+        var injector = makeInjectorWithDirectives({
+          myTranscluder: function () {
+            return {
+              transclude: true,
+              templateUrl: 'my_template.html',
+              link: function (scope, element, attrs, ctrl, transclude) {
+                element.find(["in-template"]).append(transclude());
+              },
+            };
+          },
+        });
+        injector.invoke(function ($compile, $rootScope) {
+          var el = $('<div my-transcluder>]<div in-transclude></div></div>'
+          );
+          var linkFunction = $compile(el);
+          $rootScope.$apply();
+          requests[0].respond(200, {}, '<div in-template></div>'); // respond first
+          linkFunction($rootScope); // then link
+          expect(el.find("> [in-template] > [in-transclude]").length).toBe(1);
+        });
+      });
+      it("makes transclusion available to link fn when template arrives after", function () {
+        var injector = makeInjectorWithDirectives({
+          myTranscluder: function () {
+            return {
+              transclude: true,
+              templateUrl: "my_template.html",
+              link: function (scope, element, attrs, ctrl, transclude) {
+                element.find("[in-template]").append(transclude());
+              },
+            };
+          },
+        });
+        injector.invoke(function ($compile, $rootScope) {
+          var el = $("<div my-transcluder><div in-transclude></div></div>");
+  
+          var linkFunction = $compile(el);
+          $rootScope.$apply();
+          linkFunction($rootScope); // link first
+          requests[0].respond(200, {}, "<div in-template></div>"); // then respond
+  
+          expect(el.find("> [in-template] > [in-transclude]").length).toBe(1);
+        });
+      });
+      it("is only allowed once", function () {
+        var otherCompileSpy = jasmine.createSpy();
+        var injector = makeInjectorWithDirectives({
+          myTranscluder: function () {
+            return {
+              priority: 1,
+              transclude: true,
+              templateUrl: "my_template.html",
+            };
+          },
+          mySecondTranscluder: function () {
+            return {
+              priority: 0,
+              transclude: true,
+              compile: otherCompileSpy,
+            };
+          },
+        });
+        injector.invoke(function ($compile, $rootScope) {
+          var el = $("<div my-transcluder my-second-transcluder></div>");
+  
+          $compile(el);
+          $rootScope.$apply();
+          requests[0].respond(200, {}, "<div in-template></div>");
+  
+          expect(otherCompileSpy).not.toHaveBeenCalled();
+        });
       });
     });
   });
@@ -3155,84 +3230,7 @@ describe("$compile", function () {
       });
     });
   });
-  describe("with transclusion", function () {
-    it("works when template arrives first", function () {
-      var injector = makeInjectorWithDirectives({
-        myTranscluder: function () {
-          return {
-            transclude: true,
-            templateUrl: my_template.html,
-            link: function (scope, element, attrs, ctrl, transclude) {
-              element.find(["in-template"]).append(transclude());
-            },
-          };
-        },
-      });
-      injector.invoke(function ($compile, $rootScope) {
-        var el = $(
-          <div my-transcluder>
-            <div in-transclude></div>
-          </div>
-        );
-        var linkFunction = $compile(el);
-        $rootScope.$apply();
-        requests[0].respond(200, {}, <div in-template></div>); // respond first
-        linkFunction($rootScope); // then link
-        expect(el.find("> [in-template] > [in-transclude]").length).toBe(1);
-      });
-    });
-    it("makes transclusion available to link fn when template arrives after", function () {
-      var injector = makeInjectorWithDirectives({
-        myTranscluder: function () {
-          return {
-            transclude: true,
-            templateUrl: "my_template.html",
-            link: function (scope, element, attrs, ctrl, transclude) {
-              element.find("[in-template]").append(transclude());
-            },
-          };
-        },
-      });
-      injector.invoke(function ($compile, $rootScope) {
-        var el = $("<div my-transcluder><div in-transclude></div></div>");
 
-        var linkFunction = $compile(el);
-        $rootScope.$apply();
-        linkFunction($rootScope); // link first
-        requests[0].respond(200, {}, "<div in-template></div>"); // then respond
-
-        expect(el.find("> [in-template] > [in-transclude]").length).toBe(1);
-      });
-    });
-    it("is only allowed once", function () {
-      var otherCompileSpy = jasmine.createSpy();
-      var injector = makeInjectorWithDirectives({
-        myTranscluder: function () {
-          return {
-            priority: 1,
-            transclude: true,
-            templateUrl: "my_template.html",
-          };
-        },
-        mySecondTranscluder: function () {
-          return {
-            priority: 0,
-            transclude: true,
-            compile: otherCompileSpy,
-          };
-        },
-      });
-      injector.invoke(function ($compile, $rootScope) {
-        var el = $("<div my-transcluder my-second-transcluder></div>");
-
-        $compile(el);
-        $rootScope.$apply();
-        requests[0].respond(200, {}, "<div in-template></div>");
-
-        expect(otherCompileSpy).not.toHaveBeenCalled();
-      });
-    });
-  });
   describe("element transclusion", function () {
     it("removes the element from the DOM", function () {
       var injector = makeInjectorWithDirectives({
@@ -3488,9 +3486,9 @@ describe("$compile", function () {
     it("adds binding data to text node parents", function () {
       var injector = makeInjectorWithDirectives({});
       injector.invoke(function ($compile, $rootScope) {
-        varel = $("<div>{{ myExpr }} and {{ myOtherExpr }}</div>");
+        var el = $("<div>{{ myExpr }} and {{ myOtherExpr }}</div>");
         $compile(el)($rootScope);
-        expect(el.data($binding)).toEqual(["myExpr", "myOtherExpr"]);
+        expect(el.data('$binding')).toEqual(["myExpr", "myOtherExpr"]);
       });
     });
     it("adds binding data to parent from multiple text nodes", function () {

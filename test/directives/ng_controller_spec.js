@@ -93,7 +93,7 @@ describe("ngController", function () {
     }
     var injector = createInjector([ng]);
     injector.invoke(function ($compile, $rootScope) {
-      varel = $('<div ng-controller="MyCtrlOnScope as myCtrl"></div>');
+      var el = $('<div ng-controller="MyCtrlOnScope as myCtrl"></div>');
       $rootScope.MyCtrlOnScope = MyController;
       $compile(el)($rootScope);
       expect(gotScope.myCtrl).toBeDefined();

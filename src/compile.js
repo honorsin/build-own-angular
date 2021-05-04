@@ -2,6 +2,7 @@
 
 var _ = require("lodash");
 var $ = require("jquery");
+var identifierForController = require('./controller').identifierForController;
 
 var PREFIX_REGEXP = /(x[\:\-_]|data[\:\-_])/i;
 var BOOLEAN_ATTRS = {
@@ -860,9 +861,20 @@ function $CompileProvider($provide) {
               );
             });
           }
+
+          if (newIsolateScopeDirective) {
+            initializeDirectiveBindings(
+              scope,
+              attrs,
+              isolateScope,
+              newIsolateScopeDirective.$$bindings.isolateScope,
+              isolateScope
+            );
+          }
+          
           var scopeDirective = newIsolateScopeDirective || newScopeDirective;
           if (scopeDirective && controllers[scopeDirective.name]) {
-            initializeDirectiveBindings(
+            controllers[scopeDirective.name].initialChanges =initializeDirectiveBindings(
               scope,
               attrs,
               controllers[scopeDirective.name].instance,
@@ -870,12 +882,34 @@ function $CompileProvider($provide) {
               isolateScope
             );
           }
-          _.forEach(controllers, function (controller) {
+          _.forEach(controllers, function(controller) {
             controller();
           });
-          function boundTranscludeFn() {
-            return childTranscludeFn(scope);
-          }
+  
+          _.forEach(controllerDirectives, function(controllerDirective, name) {
+            var require = controllerDirective.require;
+            if (_.isObject(require) && !_.isArray(require) && controllerDirective.bindToController) {
+              var controller = controllers[controllerDirective.name].instance;
+              var requiredControllers = getControllers(require, $element);
+              _.assign(controller, requiredControllers);
+            }
+          });
+  
+          _.forEach(controllers, function(controller) {
+            var controllerInstance = controller.instance;
+            if (controllerInstance.$onInit) {
+              controllerInstance.$onInit();
+            }
+            if (controllerInstance.$onChanges) {
+              controllerInstance.$onChanges(controller.initialChanges);
+            }
+            if (controllerInstance.$onDestroy) {
+              (newIsolateScopeDirective ? isolateScope : scope).$on('$destroy', function() {
+                controllerInstance.$onDestroy();
+              });
+            }
+          });
+
           function scopeBoundTranscludeFn(transcludedScope, cloneAttachFn) {
             var transcludeControllers;
             if (
@@ -924,11 +958,18 @@ function $CompileProvider($provide) {
               scopeBoundTranscludeFn
             );
           });
+          _.forEach(controllers, function(controller) {
+            var controllerInstance = controller.instance;
+            if (controllerInstance.$postLink) {
+              controllerInstance.$postLink();
+            }
+          });
         }
         nodeLinkFn.terminal = terminal;
         nodeLinkFn.scope = newScopeDirective && newScopeDirective.scope;
         nodeLinkFn.transcludeOnThisElement = hasTranscludeDirective;
         nodeLinkFn.transclude = childTranscludeFn;
+
         return nodeLinkFn;
       }
       function groupScan(node, startAttr, endAttr) {
@@ -957,8 +998,10 @@ function $CompileProvider($provide) {
           return linkFn(scope, group, attrs, ctrl, transclude);
         };
       }
-      return terminal;
+      return compile;
     },
   ];
 }
 $CompileProvider.$inject = ["$provide"];
+
+module.exports = $CompileProvider;
