@@ -9,7 +9,7 @@ describe("Scope", function () {
 
     beforeEach(function () {
       publishExternalAPI();
-      scope = createInjector(["ng"]).get($rootScope);
+      scope = createInjector(["ng"]).get('$rootScope');
     });
 
     it("calls the listener function of a watch on first $digest", function () {

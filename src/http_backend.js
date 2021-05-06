@@ -1,4 +1,5 @@
 "use strict";
+var _ = require('lodash');
 function $HttpBackendProvider() {
   this.$get = function () {
     return function (
@@ -46,3 +47,4 @@ function $HttpBackendProvider() {
     };
   };
 }
+module.exports = $HttpBackendProvider;

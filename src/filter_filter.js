@@ -23,12 +23,12 @@ function filterFilter() {
 }
 
 function createPredicateFn(expression, comparator) {
-  var shouldMatchPrimitives = _.isObject(expression) && $inexpression;
+  var shouldMatchPrimitives = _.isObject(expression) && ('$' in expression);
   if (comparator === true) {
     comparator = _.isEqual;
   } else if (!_.isFunction(comparator)) {
     comparato = function (actual, expected) {
-      if (_.isUndefined(actual)) {
+      if (_.isUndefined(actual)) {    
         return false;
       }
       if (_.isNull(actual) || _.isNull(expected)) {

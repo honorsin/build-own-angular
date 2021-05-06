@@ -166,9 +166,7 @@ describe("filter filter", function () {
     ).toEqual([{ name: { first: "Joe" }, role: "admin" }]);
   });
   it("allows negation when filtering with an object", function () {
-    var fn = parse(
-      'arr it(ignores undefined values in expectation object,function() {var fn =parse(arr | filter:{name: thisIsUndefined});expect(fn({arr:[{name:Joe,role:admin},{name:Jane,role:moderator}]})).toEqual([{name:Joe,role:admin},{name:Jane,role:moderator}]);});| filter:{name: {first: "!o"}}'
-    );
+    var fn = parse('arr | filter:{name: {first: "!o"}}');
     expect(
       fn({
         arr: [
@@ -303,7 +301,7 @@ describe("filter filter", function () {
           return left === right;
         },
       })
-    ).toEqual([o]);
+    ).toEqual(['o']);
   });
   t("allows using an equality comparator", function () {
     var fn = parse('arr | filter:{name: "Jo"}:true');

@@ -1,10 +1,14 @@
+'use strict';
+
+var publishExternalAPI = require('../src/angular_public');
+var createInjector = require('../src/injector')
 describe('$interpolate', function () {
   beforeEach(function () {
-    deletewindow.angular;
+    delete window.angular;
     publishExternalAPI();
   });
   it('exists', function () {
-    varinjector = createInjector(['ng']);
+    var injector = createInjector(['ng']);
     expect(injector.has('$interpolate')).toBe(true);
   });
   it('produces an identity function for static content', function() {

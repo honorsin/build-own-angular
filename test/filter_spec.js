@@ -20,7 +20,7 @@ describe("filter", function () {
       },
     ]);
     var $filter = injector.get("$filter");
-    expect(filter("my")).toBe(myFilter);
+    expect($filter("my")).toBe(myFilter);
   });
   it("allows registering multiple filters with an object", function () {
     var myFilter = function () {};
